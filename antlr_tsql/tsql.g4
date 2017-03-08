@@ -89,8 +89,8 @@ cfl_statement
     // https://msdn.microsoft.com/en-us/library/ms174366.aspx
     | CONTINUE ';'?                                  #continue_statement
     // https://msdn.microsoft.com/en-us/library/ms180188.aspx
-    | GOTO id ';'?                                   #goto_statement
-    | id ':' ';'?                                    #goto_statement
+    | GOTO r_id ';'?                                   #goto_statement
+    | r_id ':' ';'?                                    #goto_statement
     // https://msdn.microsoft.com/en-us/library/ms182717.aspx
     | IF search_condition sql_clause (ELSE sql_clause)? ';'?  #if_statement
     // https://msdn.microsoft.com/en-us/library/ms174998.aspx
@@ -192,7 +192,7 @@ output_dml_list_elem
     ;
 
 output_column_name
-    : (DELETED | INSERTED | table_name) '.' ('*' | id)
+    : (DELETED | INSERTED | table_name) '.' ('*' | r_id)
     | DOLLAR_ACTION
     ;
 
@@ -200,19 +200,19 @@ output_column_name
 
 // https://msdn.microsoft.com/en-ie/library/ms176061.aspx
 create_database
-    : CREATE DATABASE (database=id)
+    : CREATE DATABASE (database=r_id)
     ( CONTAINMENT '=' ( NONE | PARTIAL ) )?
     ( ON PRIMARY? database_file_spec ( ',' database_file_spec )* )?
     ( LOG ON database_file_spec ( ',' database_file_spec )* )?
-    ( COLLATE collation_name = id )?
+    ( COLLATE collation_name = r_id )?
     ( WITH  create_database_option ( ',' create_database_option )* )?
     ;
 
 // https://msdn.microsoft.com/en-us/library/ms188783.aspx
 create_index
-    : CREATE UNIQUE? clustered? INDEX id ON table_name_with_hint '(' column_name_list (ASC | DESC)? ')'
+    : CREATE UNIQUE? clustered? INDEX r_id ON table_name_with_hint '(' column_name_list (ASC | DESC)? ')'
     (index_options)?
-    (ON id)?
+    (ON r_id)?
     ';'?
     ;
 
@@ -225,7 +225,7 @@ create_procedure
     ;
 
 procedure_param
-    : LOCAL_ID (id '.')? AS? data_type VARYING? ('=' default_val=default_value)? (OUT | OUTPUT | READONLY)?
+    : LOCAL_ID (r_id '.')? AS? data_type VARYING? ('=' default_val=default_value)? (OUT | OUTPUT | READONLY)?
     ;
 
 procedure_option
@@ -236,14 +236,14 @@ procedure_option
 
 // https://msdn.microsoft.com/en-us/library/ms188038.aspx
 create_statistics
-    : CREATE STATISTICS id ON table_name_with_hint '(' column_name_list ')'
+    : CREATE STATISTICS r_id ON table_name_with_hint '(' column_name_list ')'
       (WITH (FULLSCAN | SAMPLE DECIMAL (PERCENT | ROWS) | STATS_STREAM)
             (',' NORECOMPUTE)? (',' INCREMENTAL EQUAL on_off)? )? ';'?
     ;
 
 // https://msdn.microsoft.com/en-us/library/ms174979.aspx
 create_table
-    : CREATE TABLE table_name '(' column_def_table_constraints ','? ')' (ON id | DEFAULT)? (TEXTIMAGE_ON id | DEFAULT)?';'?
+    : CREATE TABLE table_name '(' column_def_table_constraints ','? ')' (ON r_id | DEFAULT)? (TEXTIMAGE_ON r_id | DEFAULT)?';'?
     ;
 
 // https://msdn.microsoft.com/en-us/library/ms187956.aspx
@@ -261,17 +261,17 @@ view_attribute
 alter_table
     : ALTER TABLE table_name (SET '(' LOCK_ESCALATION '=' (AUTO | TABLE | DISABLE) ')'
                              | ADD column_def_table_constraint
-                             | DROP CONSTRAINT constraint=id
-                             | WITH CHECK ADD CONSTRAINT constraint=id FOREIGN KEY '(' fk = column_name_list ')' REFERENCES table_name '(' pk = column_name_list')'
-                             | CHECK CONSTRAINT constraint=id
+                             | DROP CONSTRAINT constraint=r_id
+                             | WITH CHECK ADD CONSTRAINT constraint=r_id FOREIGN KEY '(' fk = column_name_list ')' REFERENCES table_name '(' pk = column_name_list')'
+                             | CHECK CONSTRAINT constraint=r_id
                              )
                              ';'?
     ;
 
 // https://msdn.microsoft.com/en-us/library/ms174269.aspx
 alter_database
-    : ALTER DATABASE (database=id | CURRENT)
-      (MODIFY NAME '=' new_name=id | COLLATE collation=id | SET database_optionspec (WITH termination)? ) ';'?
+    : ALTER DATABASE (database=r_id | CURRENT)
+      (MODIFY NAME '=' new_name=r_id | COLLATE collation=r_id | SET database_optionspec (WITH termination)? ) ';'?
     ;
 
 // https://msdn.microsoft.com/en-us/library/bb522682.aspx
@@ -360,8 +360,8 @@ delayed_durability_option:
 external_access_option:
    DB_CHAINING on_off  
   | TRUSTWORTHY on_off  
-  | DEFAULT_LANGUAGE EQUAL ( id | STRING )  
-  | DEFAULT_FULLTEXT_LANGUAGE EQUAL ( id | STRING )  
+  | DEFAULT_LANGUAGE EQUAL ( r_id | STRING )  
+  | DEFAULT_FULLTEXT_LANGUAGE EQUAL ( r_id | STRING )  
   | NESTED_TRIGGERS EQUAL ( OFF | ON )  
   | TRANSFORM_NOISE_WORDS EQUAL ( OFF | ON )  
   | TWO_DIGIT_YEAR_CUTOFF EQUAL DECIMAL
@@ -433,7 +433,7 @@ termination:
 
 // https://msdn.microsoft.com/en-us/library/ms176118.aspx
 drop_index
-    : DROP INDEX (IF EXISTS)? name=id (ON table_name)? ';'?
+    : DROP INDEX (IF EXISTS)? name=r_id (ON table_name)? ';'?
     ;
 
 // https://msdn.microsoft.com/en-us/library/ms174969.aspx
@@ -443,7 +443,7 @@ drop_procedure
 
 // https://msdn.microsoft.com/en-us/library/ms175075.aspx
 drop_statistics
-    : DROP STATISTICS (table_name '.')? name=id ';'
+    : DROP STATISTICS (table_name '.')? name=r_id ';'
     ;
 
 // https://msdn.microsoft.com/en-us/library/ms173790.aspx
@@ -471,13 +471,13 @@ rowset_function_limited
 
 // https://msdn.microsoft.com/en-us/library/ms188427(v=sql.120).aspx
 openquery
-    : OPENQUERY '(' linked_server=id ',' query=STRING ')'
+    : OPENQUERY '(' linked_server=r_id ',' query=STRING ')'
     ;
 
 // https://msdn.microsoft.com/en-us/library/ms179856.aspx
 opendatasource
     : OPENDATASOURCE '(' provider=STRING ',' init=STRING ')'
-     '.' (database=id)? '.' (scheme=id)? '.' (table=id)
+     '.' (database=r_id)? '.' (scheme=r_id)? '.' (table=r_id)
     ;
 
 // Other statements.
@@ -509,7 +509,7 @@ execute_statement
     ;
 
 execute_statement_arg
-    : (parameter=LOCAL_ID '=')? ((constant_LOCAL_ID | id) (OUTPUT | OUT)? | DEFAULT | NULL)
+    : (parameter=LOCAL_ID '=')? ((constant_LOCAL_ID | r_id) (OUTPUT | OUT)? | DEFAULT | NULL)
     ;
 
 execute_var_string
@@ -522,29 +522,29 @@ security_statement
     // https://msdn.microsoft.com/en-us/library/ms188354.aspx
     : execute_clause ';'?
     // https://msdn.microsoft.com/en-us/library/ms187965.aspx
-    | GRANT (ALL PRIVILEGES? | grant_permission ('(' column_name_list ')')?) (ON on_id=table_name)? TO (to_principal=id) (WITH GRANT OPTION)? (AS as_principal=id)? ';'?
+    | GRANT (ALL PRIVILEGES? | grant_permission ('(' column_name_list ')')?) (ON on_id=table_name)? TO (to_principal=r_id) (WITH GRANT OPTION)? (AS as_principal=r_id)? ';'?
     // https://msdn.microsoft.com/en-us/library/ms178632.aspx
     | REVERT ('(' WITH COOKIE '=' LOCAL_ID ')')? ';'?
     ;
 
 grant_permission
     : EXECUTE
-    | VIEW id // DEFINITION
-    | TAKE id // OWNERSHIP
-    | CONTROL id? // SERVER
+    | VIEW r_id // DEFINITION
+    | TAKE r_id // OWNERSHIP
+    | CONTROL r_id? // SERVER
     | CREATE (TABLE | VIEW)
     | SHOWPLAN
     | IMPERSONATE
     | SELECT
     | REFERENCES
     | INSERT
-    | ALTER (ANY? (id | DATABASE))?
+    | ALTER (ANY? (r_id | DATABASE))?
     ;
 
 // https://msdn.microsoft.com/en-us/library/ms190356.aspx
 // https://msdn.microsoft.com/en-us/library/ms189484.aspx
 set_statement
-    : SET LOCAL_ID ('.' member_name=id)? '=' expression ';'?
+    : SET LOCAL_ID ('.' member_name=r_id)? '=' expression ';'?
     | SET LOCAL_ID assignment_operator expression ';'?
     | SET LOCAL_ID '='
       CURSOR declare_set_cursor_common (FOR (READ ONLY | UPDATE (OF column_name_list)?))? ';'?
@@ -555,19 +555,19 @@ set_statement
 // https://msdn.microsoft.com/en-us/library/ms174377.aspx
 transaction_statement
     // https://msdn.microsoft.com/en-us/library/ms188386.aspx
-    : BEGIN DISTRIBUTED (TRAN | TRANSACTION) (id | LOCAL_ID)? ';'?
+    : BEGIN DISTRIBUTED (TRAN | TRANSACTION) (r_id | LOCAL_ID)? ';'?
     // https://msdn.microsoft.com/en-us/library/ms188929.aspx
-    | BEGIN (TRAN | TRANSACTION) ((id | LOCAL_ID) (WITH MARK STRING)?)? ';'?
+    | BEGIN (TRAN | TRANSACTION) ((r_id | LOCAL_ID) (WITH MARK STRING)?)? ';'?
     // https://msdn.microsoft.com/en-us/library/ms190295.aspx
-    | COMMIT (TRAN | TRANSACTION) ((id | LOCAL_ID) (WITH '(' DELAYED_DURABILITY EQUAL (OFF | ON) ')')?)? ';'?
+    | COMMIT (TRAN | TRANSACTION) ((r_id | LOCAL_ID) (WITH '(' DELAYED_DURABILITY EQUAL (OFF | ON) ')')?)? ';'?
     // https://msdn.microsoft.com/en-us/library/ms178628.aspx
     | COMMIT WORK? ';'?
     // https://msdn.microsoft.com/en-us/library/ms181299.aspx
-    | ROLLBACK (TRAN | TRANSACTION) (id | LOCAL_ID)? ';'?
+    | ROLLBACK (TRAN | TRANSACTION) (r_id | LOCAL_ID)? ';'?
     // https://msdn.microsoft.com/en-us/library/ms174973.aspx
     | ROLLBACK WORK? ';'?
     // https://msdn.microsoft.com/en-us/library/ms188378.aspx
-    | SAVE (TRAN | TRANSACTION) (id | LOCAL_ID)? ';'?
+    | SAVE (TRAN | TRANSACTION) (r_id | LOCAL_ID)? ';'?
     ;
 
 // https://msdn.microsoft.com/en-us/library/ms188037.aspx
@@ -577,7 +577,7 @@ go_statement
 
 // https://msdn.microsoft.com/en-us/library/ms188366.aspx
 use_statement
-    : USE database=id ';'?
+    : USE database=r_id ';'?
     ;
 
 execute_clause
@@ -603,8 +603,8 @@ column_def_table_constraint
 
 // https://msdn.microsoft.com/en-us/library/ms187742.aspx
 column_definition
-    : id (data_type | AS expression) (COLLATE id)? null_notnull?
-      ((CONSTRAINT constraint=id)? DEFAULT constant_expression (WITH VALUES)?
+    : r_id (data_type | AS expression) (COLLATE r_id)? null_notnull?
+      ((CONSTRAINT constraint=r_id)? DEFAULT constant_expression (WITH VALUES)?
        | IDENTITY ('(' seed=DECIMAL ',' increment=DECIMAL ')')? (NOT FOR REPLICATION)?)?
       ROWGUIDCOL?
       column_constraint*
@@ -612,15 +612,15 @@ column_definition
 
 // https://msdn.microsoft.com/en-us/library/ms186712.aspx
 column_constraint
-    :(CONSTRAINT id)? null_notnull?
+    :(CONSTRAINT r_id)? null_notnull?
       ((PRIMARY KEY | UNIQUE) clustered? index_options?
       | CHECK (NOT FOR REPLICATION)? '(' search_condition ')')
     ;
 
 // https://msdn.microsoft.com/en-us/library/ms188066.aspx
 table_constraint
-    : (CONSTRAINT id)?
-       ((PRIMARY KEY | UNIQUE) clustered? '(' column_name_list (ASC | DESC)? ')' index_options? (ON id)?
+    : (CONSTRAINT r_id)?
+       ((PRIMARY KEY | UNIQUE) clustered? '(' column_name_list (ASC | DESC)? ')' index_options? (ON r_id)?
        | CHECK (NOT FOR REPLICATION)? '(' search_condition ')')
     ;
 
@@ -658,7 +658,7 @@ fetch_cursor
 // https://msdn.microsoft.com/en-us/library/ms190356.aspx
 // Runtime check.
 set_special
-    : SET id (id | constant_LOCAL_ID | on_off) ';'?
+    : SET r_id (r_id | constant_LOCAL_ID | on_off) ';'?
     // https://msdn.microsoft.com/en-us/library/ms173763.aspx
     | SET TRANSACTION ISOLATION LEVEL
       (READ UNCOMMITTED | READ COMMITTED | REPEATABLE READ | SNAPSHOT | SERIALIZABLE) ';'?
@@ -684,7 +684,7 @@ expression
     | LOCAL_ID                                                 #primitive_expression
     | constant                                                 #primitive_expression
     | function_call                                            #function_call_expression
-    | expression COLLATE id                                    #function_call_expression
+    | expression COLLATE r_id                                    #function_call_expression
     // https://msdn.microsoft.com/en-us/library/ms181765.aspx
     | CASE caseExpr=expression switch_section+ (ELSE elseExpr=expression)? END   #case_expression
     | CASE switch_search_condition_section+ (ELSE elseExpr=expression)? END      #case_expression
@@ -721,12 +721,12 @@ with_expression
     ;
 
 common_table_expression
-    : expression_name=id ('(' column_name_list ')')? AS '(' select_statement ')'
+    : expression_name=r_id ('(' column_name_list ')')? AS '(' select_statement ')'
     ;
 
 update_elem
     : (full_column_name | LOCAL_ID) ('=' | assignment_operator) expression
-    | udt_column_name=id '.' method_name=id '(' expression_list ')'
+    | udt_column_name=r_id '.' method_name=r_id '(' expression_list ')'
     //| full_column_name '.' WRITE (expression, )
     ;
 
@@ -897,12 +897,12 @@ rowset_function
     :  (
 	      OPENROWSET LR_BRACKET provider_name = STRING COMMA connectionString = STRING COMMA sql = STRING RR_BRACKET 
 	   )
-	   | ( OPENROWSET '(' BULK data_file=STRING ',' (bulk_option (',' bulk_option)* | id)')' )
+	   | ( OPENROWSET '(' BULK data_file=STRING ',' (bulk_option (',' bulk_option)* | r_id)')' )
     ;
 
 // runtime check.
 bulk_option
-    : id '=' bulk_option_value=(DECIMAL | STRING)
+    : r_id '=' bulk_option_value=(DECIMAL | STRING)
     ;
 
 derived_table
@@ -961,7 +961,7 @@ as_table_alias
     ;
 
 table_alias
-    : id with_table_hints?
+    : r_id with_table_hints?
     ;
 
 // https://msdn.microsoft.com/en-us/library/ms187373.aspx
@@ -988,7 +988,7 @@ table_hint
     ;
 
 index_value
-    : id | DECIMAL
+    : r_id | DECIMAL
     ;
 
 column_alias_list
@@ -996,7 +996,7 @@ column_alias_list
     ;
 
 column_alias
-    : id
+    : r_id
     | STRING
     ;
 
@@ -1061,8 +1061,8 @@ window_frame_following
 
 create_database_option:
     FILESTREAM ( database_filestream_option (',' database_filestream_option)* )
-    | DEFAULT_LANGUAGE EQUAL ( id | STRING )
-    | DEFAULT_FULLTEXT_LANGUAGE EQUAL ( id | STRING )
+    | DEFAULT_LANGUAGE EQUAL ( r_id | STRING )
+    | DEFAULT_FULLTEXT_LANGUAGE EQUAL ( r_id | STRING )
     | NESTED_TRIGGERS EQUAL ( OFF | ON )
     | TRANSFORM_NOISE_WORDS EQUAL ( OFF | ON )
     | TWO_DIGIT_YEAR_CUTOFF EQUAL DECIMAL
@@ -1084,7 +1084,7 @@ database_file_spec:
     file_group | file_spec;
 
 file_group:
-     FILEGROUP id
+     FILEGROUP r_id
      ( CONTAINS FILESTREAM )?
      ( DEFAULT )?
      ( CONTAINS MEMORY_OPTIMIZED_DATA )?
@@ -1092,8 +1092,8 @@ file_group:
     ;
 file_spec
     : LR_BRACKET
-      NAME EQUAL ( id | STRING ) ','?
-      FILENAME EQUAL file = STRING ','?
+      NAME EQUAL ( r_id | STRING ) ','?
+      FILENAME EQUAL r_file = STRING ','?
       ( SIZE EQUAL file_size ','? )?
       ( MAXSIZE EQUAL (file_size | UNLIMITED )','? )?
       ( FILEGROWTH EQUAL file_size ','? )?
@@ -1103,21 +1103,21 @@ file_spec
 // Primitive.
 
 full_table_name
-    : (server=id '.' database=id '.'  schema=id   '.'
-      |              database=id '.' (schema=id)? '.'
-      |                               schema=id   '.')? table=id
+    : (server=r_id '.' database=r_id '.'  schema=r_id   '.'
+      |              database=r_id '.' (schema=r_id)? '.'
+      |                               schema=r_id   '.')? table=r_id
     ;
 
 table_name
-    : (database=id '.' (schema=id)? '.' | schema=id '.')? table=id
+    : (database=r_id '.' (schema=r_id)? '.' | schema=r_id '.')? table=r_id
     ;
 
 simple_name
-    : (schema=id '.')? name=id
+    : (schema=r_id '.')? name=r_id
     ;
 
 func_proc_name
-    : (database=id '.' (schema=id)? '.' | (schema=id) '.')? procedure=id
+    : (database=r_id '.' (schema=r_id)? '.' | (schema=r_id) '.')? procedure=r_id
     ;
 
 ddl_object
@@ -1126,15 +1126,15 @@ ddl_object
     ;
 
 full_column_name
-    : (table_name '.')? id
+    : (table_name '.')? r_id
     ;
 
 column_name_list
-    : id (',' id)*
+    : r_id (',' r_id)*
     ;
 
 cursor_name
-    : id
+    : r_id
     | LOCAL_ID
     ;
 
@@ -1196,7 +1196,7 @@ data_type
     | VARBINARY '(' DECIMAL | MAX ')'
     | VARCHAR '(' DECIMAL | MAX ')'
     | XML*/
-    : id IDENTITY? ('(' (DECIMAL | MAX) (',' DECIMAL)? ')')?
+    : r_id IDENTITY? ('(' (DECIMAL | MAX) (',' DECIMAL)? ')')?
     ;
 
 default_value
@@ -1219,7 +1219,7 @@ sign
     ;
 
 // https://msdn.microsoft.com/en-us/library/ms175874.aspx
-id
+r_id
     : simple_id
     | DOUBLE_QUOTE_ID
     | SQUARE_BRACKET_ID
