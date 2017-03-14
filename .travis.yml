@@ -4,7 +4,7 @@ services:
 - docker
 before_install:
 - docker build -t antlr .
-script: "docker run -v $(pwd):/usr/src/app antlr make build test"
+script: docker run -v $(pwd):/usr/src/app antlr make build test
 after_script: ([ "${TRAVIS_BRANCH}" = "dev" ] || [ "${TRAVIS_BRANCH}" = "master" ])
   && docker run -e GH_TOKEN -e TRAVIS_BRANCH -e TRAVIS_TAG -e TRAVIS_COMMIT antlr
   make clean deploy
@@ -12,10 +12,10 @@ deploy:
   provider: pypi
   user: machow
   password:
-    secure: cqCj0PiURWEpLgjvWYtpuZ4O/1flY9S5NTF5XoCrLaw6cfjCJ4AU66InoV4eUiWNyF881Bui1dsbWJ8UftIUVGFGpUDzQMBPnQAdkjQcsSXt+iP81qBfoOATcc5TuMbnPJT1IHCpVGCzci30FQk1/XObxHHvIVpAU6Vz3MHlZ4IpNWSjOtHj43hW60cJnqwG7qp6V+OZ0mQbMgW+1uPxDRhylrAx/VNSEgkTzvUUL77hZS3Bta4Aazomf3kmSvrp1pgO6C+ww+UW+9lCrhOO8IVJ3MDZmo91RVmOor+qwRP2is1rmfdj9AJR5G72ehDXoR1hkKpCwbQlda7jmmy2AVbb7MxZ8S4Tt+A0dtFQVYre3D9jJ+FBGjPCkXzqj9aK4zyHEgZWrGktOztL/8/3ZVkRj6DUh9turDEVno85VsBNgIjiF9vvJw2NJDmc8m3GBP+LM1oy9XUA11s9r2/D1ZkxQZKKNEZSqXw0noBx30CKZdDCQwB7DPxZzKFxMhhd6ofrJqKlVe0ydh0FRcExuyUBAc6Jhua/mZZqiI5gUYe+Nws+S+cCp9sR8hoyzZ7MOq+I8sjUiywNuM1u1XtP7nTE14lPR8bZyrDvCPrYXFb62ZHcPrR3QpVeqOkL9NIV+kPLvdyFXwQ+76D+XNFJLwXVlf8Ab2Uph8Ch5mADp2A=
+    secure: rO6uB11S7nyT7YjicTImY5zgvFQZlCrWUcPPDB/DFj3pWANKyxNZ3QoaIXl/j/7P8p9QsRiPvWcqxNae7QAIsvoiM2dQLzLKNLMQy4s6/B1fG1xWQLc6LAPzVlqFCAnm9CNFGSnMn1t4oeCvCmkycZczp1yZwPLBeQpK2gFg0cNdt042ntoklRTAjAJLvThwtjiXVsUEQ8ZZ7QV3RIjFHNzrgje+yWV//uEfsmekIk6i1u/ypImiPxnjut53d15Qs8UQTFg/XmTml6xx2gRgmSAYeFpONlPM528b0OauWSE9jwu07i88FUwuEm6OefiCugmpaj/SDpsEZKl/ecjYgZV9pDWpRvg6WPRWLaZ6gnA7zDQvrT8x0nEQRMOQfNjAPqvUCgEy5R8vZ9NoFr879GC56Ca9KUZeoqwkJMooeQfZLy3uJLFFYwVmT3DVrnUit3PwXLSkSu1VFMXzBV/Z5kOSoCGzFvvmTOGQvzC8Fs1+lXwMeUl1K8CT8arIKpg+BN/FzFmEzuH+xG29w1LoQxcy40CBvinOKTmtlowYwWws1PITOJPHQmVxWXU7i1rNXpoRzeSceGI3dTvWtXwSZre5Y/nfNHBENuX1O1Y7CMROeeMxp+tgbhstpiZSMHli9cNRHAgHJ8uP7ujlAW3vfgGT3glBxpSEoXWvhKvY3eA=
   on:
     tags: true
     distributions: sdist bdist_wheel
-    repo: datacamp/antlr-plsql
+    repo: datacamp/antlr-tsql
   skip_cleanup: true
   skip_upload_docs: true
