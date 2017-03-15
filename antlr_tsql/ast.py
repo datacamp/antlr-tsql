@@ -8,13 +8,18 @@ from .tsqlLexer import tsqlLexer
 from .tsqlParser import tsqlParser
 from .tsqlVisitor import tsqlVisitor
 
-def parse(sql_text, start='tsql_file'):
+def parse(sql_text, start='tsql_file', strict=False):
     input_stream = InputStream(sql_text)
 
     lexer = tsqlLexer(input_stream)
     token_stream = CommonTokenStream(lexer)
     parser = tsqlParser(token_stream)
     visitor = AstVisitor()
+
+    if strict:
+        error_listener = CustomErrorListener()
+        parser.addErrorListener(error_listener)
+
     return visitor.visit(getattr(parser, start)())
 
 def dump_node(obj):
@@ -135,3 +140,27 @@ class AstVisitor(tsqlVisitor):
 
     def visitTsql_file(self, ctx):
         return Script(ctx, self)
+
+
+from antlr4.error.ErrorListener import ErrorListener
+from antlr4.error.Errors import RecognitionException
+class AntlrException(Exception):
+    def __init__(self, msg, orig):
+        self.msg, self.orig = msg, orig
+
+class CustomErrorListener(ErrorListener):
+    def syntaxError(self, recognizer, badSymbol, line, col, msg, e):
+        if e is not None:
+            msg = "line {line}: {col} {msg}".format(line=line, col=col, msg=msg)
+            raise AntlrException(msg, e)
+        else:
+            raise AntlrException(msg, None)
+
+    #def reportAmbiguity(self, recognizer, dfa, startIndex, stopIndex, exact, ambigAlts, configs):
+    #    raise Exception("TODO")
+
+    #def reportAttemptingFullContext(self, recognizer, dfa, startIndex, stopIndex, conflictingAlts, configs):
+    #    raise Exception("TODO")
+
+    #def reportContextSensitivity(self, recognizer, dfa, startIndex, stopIndex, prediction, configs):
+    #    raise Exception("TODO")
