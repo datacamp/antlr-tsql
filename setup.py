@@ -18,4 +18,5 @@ setup(
         description = 'A transact sql parser, written in Antlr4',
         author = 'Michael Chow',
         author_email = 'michael@datacamp.com',
-        url = 'https://github.com/datacamp/antlr-tsql')
+        url = 'https://github.com/datacamp/antlr-tsql',
+        include_package_data = True)
