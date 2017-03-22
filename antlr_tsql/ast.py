@@ -22,6 +22,16 @@ def parse(sql_text, start='tsql_file', strict=False):
 
     return visitor.visit(getattr(parser, start)())
 
+
+import yaml
+def parse_from_yaml(fname):
+    data = yaml.load(open(fname)) if isinstance(fname, str) else fname
+    out = {}
+    for start, cmds in data.items():
+        out[start] = [parse(cmd, start) for cmd in cmds]
+    return out
+
+
 from collections import OrderedDict
 def dump_node(obj):
     if isinstance(obj, AstNode):
@@ -99,11 +109,11 @@ class AstNode(AST):         # AST is subclassed only so we can use ast.NodeVisit
         raise NotImplementedError()
 
     def __str__(self):
-        els = [k for k in self._get_field_names() if getattr(self, k) is not None]
+        els = [k for k in self._get_field_names() if getattr(self, k, None) is not None]
         return "{}: {}".format(self.__class__.__name__, ", ".join(els))
 
     def __repr__(self):
-        field_reps = {k: repr(getattr(self, k)) for k in self._get_field_names() if getattr(self, k) is not None}
+        field_reps = {k: repr(getattr(self, k)) for k in self._get_field_names() if getattr(self, k, None) is not None}
         args = ", ".join("{} = {}".format(k, v) for k, v in field_reps.items())
         return "{}({})".format(self.__class__.__name__, args)
             
@@ -121,6 +131,7 @@ class Script(AstNode):
 
 class SelectStmt(AstNode):
     _fields = ['select_list->target_list',
+               'top_clause',
                'table_name->into_clause', 
                'table_sources->from_clause', 
                'where',
@@ -140,6 +151,9 @@ class BinaryExpr(AstNode):
 
 class UnaryExpr(AstNode):
     _fields = ['op', 'expression->expr']
+
+class TopExpr(AstNode):
+    _fields = ['expression->expr', 'PERCENT->percent', 'WITH->with_ties']
 
 from collections.abc import Sequence
 class Call(AstNode):
@@ -183,6 +197,8 @@ class Call(AstNode):
     def _from_cast(cls, visitor, ctx):
         args = [AliasExpr(expr = ctx.expression().accept(visitor), alias=ctx.alias.accept(visitor))]
         return cls(ctx, name = ctx.children[0].getText(), args = args)
+
+
 
 
 
@@ -255,6 +271,9 @@ class AstVisitor(tsqlVisitor):
         else:
             return self.visitChildren(ctx)
 
+    def visitTop_clause(self, ctx):
+        return TopExpr._from_fields(self, ctx)
+
     # Function calls ---------------
 
     def visitSimple_call(self, ctx):
@@ -267,6 +286,9 @@ class AstVisitor(tsqlVisitor):
         return self.visitChildren(ctx, predicate = lambda n: not isinstance(n, Tree.TerminalNode))
 
     def visitAggregate_windowed_function(self, ctx):
+        return Call._from_aggregate(self, ctx)
+
+    def visitRanking_windowed_function(self, ctx):
         return Call._from_aggregate(self, ctx)
 
     def visitCast_call(self, ctx):

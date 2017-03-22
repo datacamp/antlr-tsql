@@ -747,6 +747,7 @@ search_condition_not
     : NOT? predicate
     ;
 
+// MC-NOTE this is mostly redundant to the expression rule, but is also mi
 predicate
     : EXISTS '(' subquery ')'
     | expression comparison_operator expression
@@ -769,7 +770,7 @@ union
 
 // https://msdn.microsoft.com/en-us/library/ms176104.aspx
 query_specification
-    : SELECT pref=(ALL | DISTINCT)? (TOP expression PERCENT? (WITH TIES)?)? // MC-NOTE: TODO: label
+    : SELECT pref=(ALL | DISTINCT)? top_clause
       select_list
       // https://msdn.microsoft.com/en-us/library/ms188029.aspx
       (INTO table_name)?
@@ -778,6 +779,10 @@ query_specification
       // https://msdn.microsoft.com/en-us/library/ms177673.aspx
       (GROUP BY group_by_item (',' group_by_item)*)?
       (HAVING having=search_condition)?
+    ;
+
+top_clause
+    : (TOP expression PERCENT? (WITH TIES)?)?
     ;
 
 // https://msdn.microsoft.com/en-us/library/ms188385.aspx
