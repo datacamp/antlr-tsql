@@ -692,12 +692,12 @@ expression
     | full_column_name                                         #column_ref_expression
     | '(' expression ')'                                       #bracket_expression
     | '(' subquery ')'                                         #subquery_expression
-    | '~' expression                                           #unary_operator_expression
+    | op='~' expression                                        #unary_operator_expression
 
-    | expression op=('*' | '/' | '%') expression               #binary_operator_expression
-    | op=('+' | '-') expression                                #unary_operator_expression
-    | expression op=('+' | '-' | '&' | '^' | '|') expression   #binary_operator_expression
-    | expression comparison_operator expression                #binary_operator_expression
+    | left=expression op=('*' | '/' | '%') right=expression               #binary_operator_expression
+    | op=('+' | '-') expression                                           #unary_operator_expression
+    | left=expression op=('+' | '-' | '&' | '^' | '|') right=expression   #binary_operator_expression
+    | left=expression comparison_operator right=expression                #binary_operator_expression
 
     | over_clause                                              #over_clause_expression
     ;
@@ -747,6 +747,7 @@ search_condition_not
     : NOT? predicate
     ;
 
+// MC-NOTE this is mostly redundant to the expression rule, but is also mi
 predicate
     : EXISTS '(' subquery ')'
     | expression comparison_operator expression
@@ -769,7 +770,7 @@ union
 
 // https://msdn.microsoft.com/en-us/library/ms176104.aspx
 query_specification
-    : SELECT (ALL | DISTINCT)? (TOP expression PERCENT? (WITH TIES)?)?
+    : SELECT pref=(ALL | DISTINCT)? top_clause
       select_list
       // https://msdn.microsoft.com/en-us/library/ms188029.aspx
       (INTO table_name)?
@@ -778,6 +779,10 @@ query_specification
       // https://msdn.microsoft.com/en-us/library/ms177673.aspx
       (GROUP BY group_by_item (',' group_by_item)*)?
       (HAVING having=search_condition)?
+    ;
+
+top_clause
+    : (TOP expression PERCENT? (WITH TIES)?)?
     ;
 
 // https://msdn.microsoft.com/en-us/library/ms188385.aspx
@@ -845,8 +850,8 @@ select_list
 
 select_list_elem
     : (table_name '.')? ('*' | '$' (IDENTITY | ROWGUID))
-    | column_alias '=' expression
-    | expression (AS? column_alias)?
+    | alias=column_alias '=' expression
+    | expression (AS? alias=column_alias)?
     ;
 
 table_sources
@@ -911,41 +916,42 @@ derived_table
     ;
 
 function_call
-    : ranking_windowed_function
-    | aggregate_windowed_function
-    | scalar_function_name '(' expression_list? ')'
+    : ranking_windowed_function                                         #rank_call
+    | aggregate_windowed_function                                       #aggregate_call
+    | scalar_function_name '(' expression_list? ')'                     #standard_call
     // https://msdn.microsoft.com/en-us/library/ms173784.aspx
-    | BINARY_CHECKSUM '(' '*' ')'
+    | BINARY_CHECKSUM '(' '*' ')'                                       #standard_call
     // https://msdn.microsoft.com/en-us/library/hh231076.aspx
     // https://msdn.microsoft.com/en-us/library/ms187928.aspx
-    | CAST '(' expression AS data_type ')'
-    | CONVERT '(' data_type ',' expression (',' style=expression)? ')'
+    // MC-NOTE: TODO AST shaping for CAST
+    | CAST '(' expression AS alias=data_type ')'                        #cast_call
+    | CONVERT '(' data_type ',' expression (',' style=expression)? ')'  #standard_call
     // https://msdn.microsoft.com/en-us/library/ms189788.aspx
-    | CHECKSUM '(' '*' ')'
+    | CHECKSUM '(' '*' ')'                                              #simple_call
     // https://msdn.microsoft.com/en-us/library/ms190349.aspx
-    | COALESCE '(' expression_list ')'
+    | COALESCE '(' expression_list ')'                                  #standard_call
     // https://msdn.microsoft.com/en-us/library/ms188751.aspx
-    | CURRENT_TIMESTAMP
+    | CURRENT_TIMESTAMP                                                 #simple_call
     // https://msdn.microsoft.com/en-us/library/ms176050.aspx
-    | CURRENT_USER
+    | CURRENT_USER                                                      #simple_call
     // https://msdn.microsoft.com/en-us/library/ms186819.aspx
-    | DATEADD '(' ID ',' expression ',' expression ')'
+    | DATEADD '(' ID ',' expression ',' expression ')'                  #standard_call
     // https://msdn.microsoft.com/en-us/library/ms189794.aspx
-    | DATEDIFF '(' ID ',' expression ',' expression ')'
+    | DATEDIFF '(' ID ',' expression ',' expression ')'                 #standard_call
     // https://msdn.microsoft.com/en-us/library/ms174395.aspx
-    | DATENAME '(' ID ',' expression ')'
+    | DATENAME '(' ID ',' expression ')'                                #standard_call
     // https://msdn.microsoft.com/en-us/library/ms174420.aspx
-    | DATEPART '(' ID ',' expression ')'
+    | DATEPART '(' ID ',' expression ')'                                #standard_call
     // https://msdn.microsoft.com/en-us/library/ms189838.aspx
-    | IDENTITY '(' data_type (',' seed=DECIMAL)? (',' increment=DECIMAL)? ')'
+    | IDENTITY '(' data_type (',' seed=DECIMAL)? (',' increment=DECIMAL)? ')' #standard_call
     // https://msdn.microsoft.com/en-us/library/bb839514.aspx
-    | MIN_ACTIVE_ROWVERSION
+    | MIN_ACTIVE_ROWVERSION                                             #simple_call
     // https://msdn.microsoft.com/en-us/library/ms177562.aspx
-    | NULLIF '(' expression ',' expression ')'
+    | NULLIF '(' expression ',' expression ')'                          #standard_call
     // https://msdn.microsoft.com/en-us/library/ms177587.aspx
-    | SESSION_USER
+    | SESSION_USER                                                      #simple_call
     // https://msdn.microsoft.com/en-us/library/ms179930.aspx
-    | SYSTEM_USER
+    | SYSTEM_USER                                                       #simple_call
     ;
 
 switch_section
@@ -1017,16 +1023,16 @@ ranking_windowed_function
 // https://msdn.microsoft.com/en-us/library/ms173454.aspx
 aggregate_windowed_function
     : (AVG | MAX | MIN | SUM | STDEV | STDEVP | VAR | VARP)
-      '(' all_distinct_expression ')' over_clause?
+      '(' all_distinct? expression ')' over_clause?
     | (COUNT | COUNT_BIG)
-      '(' ('*' | all_distinct_expression) ')' over_clause?
-    | CHECKSUM_AGG '(' all_distinct_expression ')'
+      '(' (args='*' | all_distinct? expression) ')' over_clause?
+    | CHECKSUM_AGG '(' all_distinct? expression ')'
     | GROUPING '(' expression ')'
     | GROUPING_ID '(' expression_list ')'
     ;
 
-all_distinct_expression
-    : (ALL | DISTINCT)? expression
+all_distinct
+    : (ALL | DISTINCT)
     ;
 
 // https://msdn.microsoft.com/en-us/library/ms189461.aspx
@@ -1126,7 +1132,7 @@ ddl_object
     ;
 
 full_column_name
-    : (table_name '.')? r_id
+    : (table=table_name '.')? name=r_id
     ;
 
 column_name_list

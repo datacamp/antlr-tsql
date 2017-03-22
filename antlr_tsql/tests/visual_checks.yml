@@ -1,0 +1,49 @@
+parser_name: tsql
+code:
+  tsql_file:
+    - "SELECT * FROM a.b;\nSELECT * FROM x.y;\nGO"
+  query_specification:
+    - "SELECT * FROM x.y"
+  select_list_elem:
+    # TODO what is the "$" all about?
+    - "x.y"
+    - "x.*"
+    # aliasing
+    - "x"
+    - "x as y"
+    - "x = y"
+  full_column_name:
+    - "some_column"
+    - "some_table.some_column"
+  full_table_name:
+    - "serv.db.sch.tab"
+    - "db.sch.tab"
+    - "sch.tab"
+  expression:
+    # binary_operator_expression
+    - "1 * 1"
+    - "1 + 1"
+    - "1 < 2"
+    # unary_operator_expression
+    - "-id"
+    # TODO: subquery_expression
+    # TODO  bracket_expression
+    # TODO: case_expression
+  function_call:
+    # aggregate_windowed_function
+    - "COUNT(ALL id = 1) OVER ( PARTITION BY a + b ORDER BY a)"
+    - "COUNT(*)"
+    - "AVG ( ALL id )"
+    - "GROUPING_ID ( a, b )"
+    # ranking windowed_function
+    - "RANK () OVER ( PARTITION BY a + b ORDER BY a)"
+    - "NTILE ( a + b )"
+    # standard_call
+    - "COALESCE ( a, b )"
+    - "BINARY_CHECKSUM (*)"
+    - "DATEADD ( a, 1 + 1, 2 + 2)"
+    - "RIGHT ( 1 + 1, 2 + 2 )"
+    # simple_call
+    - "SESSION_USER"
+    # cast_call
+    - "CAST ( a as varchar )"
