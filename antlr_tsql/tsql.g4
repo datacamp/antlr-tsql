@@ -678,6 +678,7 @@ constant_LOCAL_ID
 
 // https://msdn.microsoft.com/en-us/library/ms190286.aspx
 // Operator precendence: https://msdn.microsoft.com/en-us/library/ms190276.aspx
+// MC-Note TODO: COLLATE r_id is repeated many times. Also, can move into function_call?
 expression
     : DEFAULT                                                  #primitive_expression
     | NULL                                                     #primitive_expression

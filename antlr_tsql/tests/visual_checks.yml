@@ -24,6 +24,12 @@ code:
     - "1 * 1"
     - "1 + 1"
     - "1 < 2"
+    # constant
+    - "-1.0"
+    # subquery_expression
+    - "(SELECT x FROM sys.y)"
+    # bracket_expression
+    - "( 1 + 1 )"
     # unary_operator_expression
     - "-id"
     # TODO: subquery_expression

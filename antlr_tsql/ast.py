@@ -155,6 +155,9 @@ class UnaryExpr(AstNode):
 class TopExpr(AstNode):
     _fields = ['expression->expr', 'PERCENT->percent', 'WITH->with_ties']
 
+class OverClause(AstNode):
+    _fields = ['expression_list->partition', 'order_by_clause', 'row_or_range_clause']
+
 from collections.abc import Sequence
 class Call(AstNode):
     _fields = ['name', 'all_distinct->pref',
@@ -274,6 +277,13 @@ class AstVisitor(tsqlVisitor):
     def visitTop_clause(self, ctx):
         return TopExpr._from_fields(self, ctx)
 
+    def visitOver_clause(self, ctx):
+        return OverClause._from_fields(self, ctx)
+
+    def visitConstant(self, ctx):
+        res = self.visitChildren(ctx)
+        return res if not res.startswith('+') else res[1:]
+
     # Function calls ---------------
 
     def visitSimple_call(self, ctx):
@@ -299,6 +309,12 @@ class AstVisitor(tsqlVisitor):
     # Note can't filter out TerminalNodeImpl from some currently as in something like
     # "SELECT a FROM b WHERE 1", the 1 will be a terminal node in where_clause
     def visitSelect_list(self, ctx):
+        return self.visitChildren(ctx, predicate = lambda n: not isinstance(n, Tree.TerminalNode) )
+
+    def visitBracket_expression(self, ctx): 
+        return self.visitChildren(ctx, predicate = lambda n: not isinstance(n, Tree.TerminalNode) )
+
+    def visitSubquery_expression(self, ctx): 
         return self.visitChildren(ctx, predicate = lambda n: not isinstance(n, Tree.TerminalNode) )
 
 from antlr4.error.ErrorListener import ErrorListener
