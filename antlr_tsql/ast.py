@@ -155,6 +155,9 @@ class UnaryExpr(AstNode):
 class TopExpr(AstNode):
     _fields = ['expression->expr', 'PERCENT->percent', 'WITH->with_ties']
 
+class Case(AstNode):
+    _fields = ['caseExpr->input', 'switch_section->switches', 'elseExpr->else_expr']
+
 class OverClause(AstNode):
     _fields = ['expression_list->partition', 'order_by_clause', 'row_or_range_clause']
 
@@ -283,6 +286,9 @@ class AstVisitor(tsqlVisitor):
     def visitConstant(self, ctx):
         res = self.visitChildren(ctx)
         return res if not res.startswith('+') else res[1:]
+
+    def visitCase_expression(self, ctx):
+        return Case._from_fields(self, ctx)
 
     # Function calls ---------------
 
