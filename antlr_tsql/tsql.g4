@@ -956,11 +956,11 @@ function_call
     ;
 
 switch_section
-    : WHEN expression THEN expression
+    : WHEN whenExpr=expression THEN thenExpr=expression
     ;
 
 switch_search_condition_section
-    : WHEN search_condition THEN expression
+    : WHEN whenExpr=search_condition THEN thenExpr=expression
     ;
 
 as_table_alias

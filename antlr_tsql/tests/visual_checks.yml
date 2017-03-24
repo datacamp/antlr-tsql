@@ -32,9 +32,8 @@ code:
     - "( 1 + 1 )"
     # unary_operator_expression
     - "-id"
-    # TODO: subquery_expression
-    # TODO  bracket_expression
-    # TODO: case_expression
+    # case_expression
+    - "CASE WHEN ShipDate IS NULL THEN 'Awaiting Shipment' WHEN 1 > 2 THEN 'c' ELSE 'Shipped' END"
   function_call:
     # aggregate_windowed_function
     - "COUNT(ALL id = 1) OVER ( PARTITION BY a + b ORDER BY a)"

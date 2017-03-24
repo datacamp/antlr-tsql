@@ -69,6 +69,10 @@ class AstNode(AST):         # AST is subclassed only so we can use ast.NodeVisit
             k, *name = mapping.split('->')
             name = k if not name else name[0]
 
+            # currently, get_field_names will show field multiple times,
+            # e.g. a->x and b->x will produce two x fields
+            if field_dict.get(name): continue
+
             # get node -----
             #print(k)
             child = getattr(ctx, k, getattr(ctx, name, None))
@@ -156,7 +160,10 @@ class TopExpr(AstNode):
     _fields = ['expression->expr', 'PERCENT->percent', 'WITH->with_ties']
 
 class Case(AstNode):
-    _fields = ['caseExpr->input', 'switch_section->switches', 'elseExpr->else_expr']
+    _fields = ['caseExpr->input', 'switch_search_condition_section->switches', 'switch_section->switches', 'elseExpr->else_expr']
+
+class CaseWhen(AstNode):
+    _fields = ['whenExpr->when', 'thenExpr->then']
 
 class OverClause(AstNode):
     _fields = ['expression_list->partition', 'order_by_clause', 'row_or_range_clause']
@@ -289,6 +296,12 @@ class AstVisitor(tsqlVisitor):
 
     def visitCase_expression(self, ctx):
         return Case._from_fields(self, ctx)
+
+    def visitSwitch_search_condition_section(self, ctx):
+        return CaseWhen._from_fields(self, ctx)
+
+    def visitSwitch_search_condition_section(self, ctx):
+        return CaseWhen._from_fields(self, ctx)
 
     # Function calls ---------------
 
