@@ -283,7 +283,8 @@ class AstVisitor(tsqlVisitor):
         return Call._from_standard(self, ctx)
 
     def visitExpression_list(self, ctx):
-        return self.visitChildren(ctx, predicate = lambda n: not isinstance(n, Tree.TerminalNode))
+        args = [c.accept(self) for c in ctx.children if not isinstance(c, Tree.TerminalNode)]
+        return args
 
     def visitAggregate_windowed_function(self, ctx):
         return Call._from_aggregate(self, ctx)
