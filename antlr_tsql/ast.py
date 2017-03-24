@@ -147,7 +147,7 @@ class AliasExpr(AstNode):
     _fields = ['expression->expr', 'alias']
 
 class BinaryExpr(AstNode):
-    _fields = ['left', 'op', 'right']
+    _fields = ['left', 'op', 'comparison_operator->op', 'right']
 
 class UnaryExpr(AstNode):
     _fields = ['op', 'expression->expr']
