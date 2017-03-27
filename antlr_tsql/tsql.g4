@@ -678,6 +678,7 @@ constant_LOCAL_ID
 
 // https://msdn.microsoft.com/en-us/library/ms190286.aspx
 // Operator precendence: https://msdn.microsoft.com/en-us/library/ms190276.aspx
+// MC-Note TODO: COLLATE r_id is repeated many times. Also, can move into function_call?
 expression
     : DEFAULT                                                  #primitive_expression
     | NULL                                                     #primitive_expression
@@ -736,28 +737,23 @@ search_condition_list
     ;
 
 search_condition
-    : search_condition_and (OR search_condition_and)*
+    : left=search_condition op=AND right=search_condition           # search_cond_and
+    | left=search_condition op=OR  right=search_condition           # search_cond_or
+    | predicate                                                     # search_cond_pred
     ;
 
-search_condition_and
-    : search_condition_not (AND search_condition_not)*
-    ;
-
-search_condition_not
-    : NOT? predicate
-    ;
-
-// MC-NOTE this is mostly redundant to the expression rule, but is also mi
+// MC-NOTE this is mostly redundant to the expression rule
 predicate
-    : EXISTS '(' subquery ')'
-    | expression comparison_operator expression
-    | expression comparison_operator (ALL | SOME | ANY) '(' subquery ')'
-    | expression NOT? BETWEEN expression AND expression
-    | expression NOT? IN '(' (subquery | expression_list) ')'
-    | expression NOT? LIKE expression (ESCAPE expression)?
-    | expression IS null_notnull
-    | '(' search_condition ')'
-	| DECIMAL
+    : op=NOT expr=predicate                                                             #unary_operator_expression3
+    | op=EXISTS '(' expr=subquery ')'                                                   #unary_operator_expression2
+    | left=expression op=comparison_operator right=expression                           #binary_operator_expression2
+    | test_expr=expression  op=comparison_operator pref=(ALL | SOME | ANY) '(' subquery ')'   #sublink_expression
+    | left=expression NOT?  op=BETWEEN right+=expression AND right+=expression          #binary_mod_expression
+    | left=expression NOT? op=IN '(' (subquery | expression_list) ')'                   #binary_in_expression
+    | left=expression NOT?  op=LIKE right+=expression (ESCAPE right+=expression)?       #binary_mod_expression
+    | expression IS null_notnull                                                        #binary_operator_expression2
+    | '(' search_condition ')'                                                          #bracket_search_expression
+	| DECIMAL                                                                           #decimal_expression
     ;
 
 query_expression
@@ -770,7 +766,7 @@ union
 
 // https://msdn.microsoft.com/en-us/library/ms176104.aspx
 query_specification
-    : SELECT pref=(ALL | DISTINCT)? top_clause
+    : SELECT pref=(ALL | DISTINCT)? top_clause?
       select_list
       // https://msdn.microsoft.com/en-us/library/ms188029.aspx
       (INTO table_name)?
@@ -782,7 +778,7 @@ query_specification
     ;
 
 top_clause
-    : (TOP expression PERCENT? (WITH TIES)?)?
+    : TOP expression PERCENT? (WITH TIES)?
     ;
 
 // https://msdn.microsoft.com/en-us/library/ms188385.aspx
@@ -849,7 +845,7 @@ select_list
     ;
 
 select_list_elem
-    : (table_name '.')? ('*' | '$' (IDENTITY | ROWGUID))
+    : (table_name '.')? (a_star | '$' (IDENTITY | ROWGUID))
     | alias=column_alias '=' expression
     | expression (AS? alias=column_alias)?
     ;
@@ -955,11 +951,11 @@ function_call
     ;
 
 switch_section
-    : WHEN expression THEN expression
+    : WHEN whenExpr=expression THEN thenExpr=expression
     ;
 
 switch_search_condition_section
-    : WHEN search_condition THEN expression
+    : WHEN whenExpr=search_condition THEN thenExpr=expression
     ;
 
 as_table_alias
@@ -1004,6 +1000,10 @@ column_alias_list
 column_alias
     : r_id
     | STRING
+    ;
+
+a_star
+    : '*'
     ;
 
 table_value_constructor

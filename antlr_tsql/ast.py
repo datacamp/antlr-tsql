@@ -69,6 +69,10 @@ class AstNode(AST):         # AST is subclassed only so we can use ast.NodeVisit
             k, *name = mapping.split('->')
             name = k if not name else name[0]
 
+            # currently, get_field_names will show field multiple times,
+            # e.g. a->x and b->x will produce two x fields
+            if field_dict.get(name): continue
+
             # get node -----
             #print(k)
             child = getattr(ctx, k, getattr(ctx, name, None))
@@ -142,18 +146,42 @@ class Identifier(AstNode):
     # should have server, database, schema, table, name
     _fields = ['server', 'database', 'schema', 'table', 'name']
 
-
 class AliasExpr(AstNode):
     _fields = ['expression->expr', 'alias']
 
+class Star(AstNode):
+    _fields = []
+
 class BinaryExpr(AstNode):
-    _fields = ['left', 'op', 'right']
+    _fields = ['left', 'op', 'comparison_operator->op', 'right']
+    
+
+    @classmethod
+    def _from_mod(cls, visitor, ctx, fields):
+        bin_expr = BinaryExpr._from_fields(visitor, ctx, fields)
+        ctx_not = ctx.NOT()
+        if ctx_not:
+            return UnaryExpr(ctx, op=visitor.visit(ctx_not), expr=bin_expr)
+
+        return bin_expr
 
 class UnaryExpr(AstNode):
     _fields = ['op', 'expression->expr']
 
 class TopExpr(AstNode):
     _fields = ['expression->expr', 'PERCENT->percent', 'WITH->with_ties']
+
+class Case(AstNode):
+    _fields = ['caseExpr->input', 'switch_search_condition_section->switches', 'switch_section->switches', 'elseExpr->else_expr']
+
+class CaseWhen(AstNode):
+    _fields = ['whenExpr->when', 'thenExpr->then']
+
+class OverClause(AstNode):
+    _fields = ['expression_list->partition', 'order_by_clause', 'row_or_range_clause']
+
+class Sublink(AstNode):
+    _fields = ['test_expr', 'op', 'pref', 'subquery->select']
 
 from collections.abc import Sequence
 class Call(AstNode):
@@ -180,14 +208,17 @@ class Call(AstNode):
         
         return cls(ctx, name=name, args=args)
 
+    @staticmethod
+    def get_name(ctx): return ctx.children[0].getText().upper()
+
     @classmethod
     def _from_simple(cls, visitor, ctx):
-        return cls(ctx, name = ctx.children[0].getText(), args = [])
+        return cls(ctx, name = cls.get_name(ctx), args = [])
 
     @classmethod
     def _from_aggregate(cls, visitor, ctx):
         obj = cls._from_fields(visitor, ctx)
-        obj.name = ctx.children[0].getText()
+        obj.name = cls.get_name(ctx)
 
         if obj.args is None: obj.args = []
         elif not isinstance(obj.args, Sequence): obj.args = [obj.args]
@@ -196,7 +227,7 @@ class Call(AstNode):
     @classmethod
     def _from_cast(cls, visitor, ctx):
         args = [AliasExpr(expr = ctx.expression().accept(visitor), alias=ctx.alias.accept(visitor))]
-        return cls(ctx, name = ctx.children[0].getText(), args = args)
+        return cls(ctx, name = cls.get_name(ctx), args = args)
 
 
 
@@ -226,7 +257,7 @@ class AstVisitor(tsqlVisitor):
         if len(result) == 1: return result[0]
         elif len(result) == 0: return None
         elif all(isinstance(res, str) for res in result): return " ".join(result)
-        elif all(isinstance(res, AstNode) for res in result): return result
+        elif all(isinstance(res, AstNode) and not isinstance(res, Unshaped) for res in result): return result
         else: return Unshaped(node, result)
 
     def defaultResult(self):
@@ -262,17 +293,63 @@ class AstVisitor(tsqlVisitor):
     def visitBinary_operator_expression(self, ctx):
         return BinaryExpr._from_fields(self, ctx)
 
+    def visitBinary_operator_expression2(self, ctx):
+        return BinaryExpr._from_fields(self, ctx)
+
+    def visitSearch_cond_and(self, ctx):
+        return BinaryExpr._from_fields(self, ctx)
+
+    def visitSearch_cond_or(self, ctx):
+        return BinaryExpr._from_fields(self, ctx)
+
+    def visitBinary_mod_expression(self, ctx):
+        return BinaryExpr._from_mod(self, ctx, BinaryExpr._fields)
+
+    def visitBinary_in_expression(self, ctx):
+        fields = ['left', 'op', 'subquery->right', 'expression_list->right']
+        return BinaryExpr._from_mod(self, ctx, fields)
+
     def visitUnary_operator_expression(self, ctx):
         return UnaryExpr._from_fields(self, ctx)
+    
+    def visitUnary_operator_expression2(self, ctx):
+        return UnaryExpr._from_fields(self, ctx)
+
+    def visitUnary_operator_expression3(self, ctx):
+        return UnaryExpr._from_fields(self, ctx)
+
+    def visitSublink_expression(self, ctx):
+        return Sublink._from_fields(self, ctx)
 
     def visitSelect_list_elem(self, ctx):
         if ctx.alias:
             return AliasExpr._from_fields(self, ctx)
+        elif ctx.a_star():
+            tab = ctx.table_name()
+            ident = self.visit(tab) if tab else Identifier(ctx)
+            ident.name = self.visit(ctx.a_star())
+            return ident
         else:
             return self.visitChildren(ctx)
 
     def visitTop_clause(self, ctx):
         return TopExpr._from_fields(self, ctx)
+
+    def visitOver_clause(self, ctx):
+        return OverClause._from_fields(self, ctx)
+
+    def visitConstant(self, ctx):
+        res = self.visitChildren(ctx)
+        return res if not res.startswith('+') else res[1:]
+
+    def visitCase_expression(self, ctx):
+        return Case._from_fields(self, ctx)
+
+    def visitSwitch_search_condition_section(self, ctx):
+        return CaseWhen._from_fields(self, ctx)
+
+    def visitSwitch_search_condition_section(self, ctx):
+        return CaseWhen._from_fields(self, ctx)
 
     # Function calls ---------------
 
@@ -283,7 +360,8 @@ class AstVisitor(tsqlVisitor):
         return Call._from_standard(self, ctx)
 
     def visitExpression_list(self, ctx):
-        return self.visitChildren(ctx, predicate = lambda n: not isinstance(n, Tree.TerminalNode))
+        args = [c.accept(self) for c in ctx.children if not isinstance(c, Tree.TerminalNode)]
+        return args
 
     def visitAggregate_windowed_function(self, ctx):
         return Call._from_aggregate(self, ctx)
@@ -298,6 +376,15 @@ class AstVisitor(tsqlVisitor):
     # Note can't filter out TerminalNodeImpl from some currently as in something like
     # "SELECT a FROM b WHERE 1", the 1 will be a terminal node in where_clause
     def visitSelect_list(self, ctx):
+        return self.visitChildren(ctx, predicate = lambda n: not isinstance(n, Tree.TerminalNode) )
+
+    def visitBracket_expression(self, ctx): 
+        return self.visitChildren(ctx, predicate = lambda n: not isinstance(n, Tree.TerminalNode) )
+
+    def visitSubquery_expression(self, ctx): 
+        return self.visitChildren(ctx, predicate = lambda n: not isinstance(n, Tree.TerminalNode) )
+
+    def visitBracket_search_expression(self, ctx): 
         return self.visitChildren(ctx, predicate = lambda n: not isinstance(n, Tree.TerminalNode) )
 
 from antlr4.error.ErrorListener import ErrorListener
