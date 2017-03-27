@@ -275,7 +275,21 @@ class AstVisitor(tsqlVisitor):
     def visitBinary_operator_expression(self, ctx):
         return BinaryExpr._from_fields(self, ctx)
 
+    def visitBinary_operator_expression2(self, ctx):
+        return BinaryExpr._from_fields(self, ctx)
+
+    def visitBinary_mod_expression(self, ctx):
+        bin_expr = BinaryExpr._from_fields(self, ctx)
+        ctx_not = ctx.NOT()
+        if ctx_not:
+            return UnaryExpr(ctx, op=self.visit(ctx_not), expr=bin_expr)
+
+        return bin_expr
+
     def visitUnary_operator_expression(self, ctx):
+        return UnaryExpr._from_fields(self, ctx)
+    
+    def visitUnary_operator_expression2(self, ctx):
         return UnaryExpr._from_fields(self, ctx)
 
     def visitSelect_list_elem(self, ctx):
@@ -334,6 +348,9 @@ class AstVisitor(tsqlVisitor):
         return self.visitChildren(ctx, predicate = lambda n: not isinstance(n, Tree.TerminalNode) )
 
     def visitSubquery_expression(self, ctx): 
+        return self.visitChildren(ctx, predicate = lambda n: not isinstance(n, Tree.TerminalNode) )
+
+    def visitBracket_search_expression(self, ctx): 
         return self.visitChildren(ctx, predicate = lambda n: not isinstance(n, Tree.TerminalNode) )
 
 from antlr4.error.ErrorListener import ErrorListener

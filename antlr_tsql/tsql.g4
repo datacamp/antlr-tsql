@@ -748,17 +748,17 @@ search_condition_not
     : NOT? predicate
     ;
 
-// MC-NOTE this is mostly redundant to the expression rule, but is also mi
+// MC-NOTE this is mostly redundant to the expression rule
 predicate
-    : EXISTS '(' subquery ')'
-    | expression comparison_operator expression
-    | expression comparison_operator (ALL | SOME | ANY) '(' subquery ')'
-    | expression NOT? BETWEEN expression AND expression
-    | expression NOT? IN '(' (subquery | expression_list) ')'
-    | expression NOT? LIKE expression (ESCAPE expression)?
-    | expression IS null_notnull
-    | '(' search_condition ')'
-	| DECIMAL
+    : op=EXISTS '(' expr=subquery ')'                                                   #unary_operator_expression2
+    | left=expression op=comparison_operator right=expression                           #binary_operator_expression2
+    | test_expr=expression  op=comparison_operator pref=(ALL | SOME | ANY) '(' subquery ')'   #sublink_expression
+    | left=expression NOT?  op=BETWEEN right=expression AND right=expression         #binary_mod_expression
+    | right=expression NOT? op=IN '(' (subquery | expression_list) ')'               #binary_mod_expression
+    | left=expression NOT?  op=LIKE right=expression (ESCAPE right=expression)?      #binary_mod_expression
+    | expression IS null_notnull                                                        #binary_operator_expression2
+    | '(' search_condition ')'                                                          #bracket_search_expression
+	| DECIMAL                                                                           #decimal_expression
     ;
 
 query_expression
