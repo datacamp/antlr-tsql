@@ -257,7 +257,7 @@ class AstVisitor(tsqlVisitor):
         if len(result) == 1: return result[0]
         elif len(result) == 0: return None
         elif all(isinstance(res, str) for res in result): return " ".join(result)
-        elif all(isinstance(res, AstNode) for res in result): return result
+        elif all(isinstance(res, AstNode) and not isinstance(res, Unshaped) for res in result): return result
         else: return Unshaped(node, result)
 
     def defaultResult(self):
