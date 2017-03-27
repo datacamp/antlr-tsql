@@ -146,12 +146,24 @@ class Identifier(AstNode):
     # should have server, database, schema, table, name
     _fields = ['server', 'database', 'schema', 'table', 'name']
 
-
 class AliasExpr(AstNode):
     _fields = ['expression->expr', 'alias']
 
+class Star(AstNode):
+    _fields = []
+
 class BinaryExpr(AstNode):
     _fields = ['left', 'op', 'comparison_operator->op', 'right']
+    
+
+    @classmethod
+    def _from_mod(cls, visitor, ctx, fields):
+        bin_expr = BinaryExpr._from_fields(visitor, ctx, fields)
+        ctx_not = ctx.NOT()
+        if ctx_not:
+            return UnaryExpr(ctx, op=visitor.visit(ctx_not), expr=bin_expr)
+
+        return bin_expr
 
 class UnaryExpr(AstNode):
     _fields = ['op', 'expression->expr']
@@ -167,6 +179,9 @@ class CaseWhen(AstNode):
 
 class OverClause(AstNode):
     _fields = ['expression_list->partition', 'order_by_clause', 'row_or_range_clause']
+
+class Sublink(AstNode):
+    _fields = ['test_expr', 'op', 'pref', 'subquery->select']
 
 from collections.abc import Sequence
 class Call(AstNode):
@@ -193,14 +208,17 @@ class Call(AstNode):
         
         return cls(ctx, name=name, args=args)
 
+    @staticmethod
+    def get_name(ctx): return ctx.children[0].getText().upper()
+
     @classmethod
     def _from_simple(cls, visitor, ctx):
-        return cls(ctx, name = ctx.children[0].getText(), args = [])
+        return cls(ctx, name = cls.get_name(ctx), args = [])
 
     @classmethod
     def _from_aggregate(cls, visitor, ctx):
         obj = cls._from_fields(visitor, ctx)
-        obj.name = ctx.children[0].getText()
+        obj.name = cls.get_name(ctx)
 
         if obj.args is None: obj.args = []
         elif not isinstance(obj.args, Sequence): obj.args = [obj.args]
@@ -209,7 +227,7 @@ class Call(AstNode):
     @classmethod
     def _from_cast(cls, visitor, ctx):
         args = [AliasExpr(expr = ctx.expression().accept(visitor), alias=ctx.alias.accept(visitor))]
-        return cls(ctx, name = ctx.children[0].getText(), args = args)
+        return cls(ctx, name = cls.get_name(ctx), args = args)
 
 
 
@@ -278,13 +296,18 @@ class AstVisitor(tsqlVisitor):
     def visitBinary_operator_expression2(self, ctx):
         return BinaryExpr._from_fields(self, ctx)
 
-    def visitBinary_mod_expression(self, ctx):
-        bin_expr = BinaryExpr._from_fields(self, ctx)
-        ctx_not = ctx.NOT()
-        if ctx_not:
-            return UnaryExpr(ctx, op=self.visit(ctx_not), expr=bin_expr)
+    def visitSearch_cond_and(self, ctx):
+        return BinaryExpr._from_fields(self, ctx)
 
-        return bin_expr
+    def visitSearch_cond_or(self, ctx):
+        return BinaryExpr._from_fields(self, ctx)
+
+    def visitBinary_mod_expression(self, ctx):
+        return BinaryExpr._from_mod(self, ctx, BinaryExpr._fields)
+
+    def visitBinary_in_expression(self, ctx):
+        fields = ['left', 'op', 'subquery->right', 'expression_list->right']
+        return BinaryExpr._from_mod(self, ctx, fields)
 
     def visitUnary_operator_expression(self, ctx):
         return UnaryExpr._from_fields(self, ctx)
@@ -292,9 +315,20 @@ class AstVisitor(tsqlVisitor):
     def visitUnary_operator_expression2(self, ctx):
         return UnaryExpr._from_fields(self, ctx)
 
+    def visitUnary_operator_expression3(self, ctx):
+        return UnaryExpr._from_fields(self, ctx)
+
+    def visitSublink_expression(self, ctx):
+        return Sublink._from_fields(self, ctx)
+
     def visitSelect_list_elem(self, ctx):
         if ctx.alias:
             return AliasExpr._from_fields(self, ctx)
+        elif ctx.a_star():
+            tab = ctx.table_name()
+            ident = self.visit(tab) if tab else Identifier(ctx)
+            ident.name = self.visit(ctx.a_star())
+            return ident
         else:
             return self.visitChildren(ctx)
 

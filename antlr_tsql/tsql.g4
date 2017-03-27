@@ -737,25 +737,20 @@ search_condition_list
     ;
 
 search_condition
-    : search_condition_and (OR search_condition_and)*
-    ;
-
-search_condition_and
-    : search_condition_not (AND search_condition_not)*
-    ;
-
-search_condition_not
-    : NOT? predicate
+    : left=search_condition op=AND right=search_condition           # search_cond_and
+    | left=search_condition op=OR  right=search_condition           # search_cond_or
+    | predicate                                                     # search_cond_pred
     ;
 
 // MC-NOTE this is mostly redundant to the expression rule
 predicate
-    : op=EXISTS '(' expr=subquery ')'                                                   #unary_operator_expression2
+    : op=NOT expr=predicate                                                             #unary_operator_expression3
+    | op=EXISTS '(' expr=subquery ')'                                                   #unary_operator_expression2
     | left=expression op=comparison_operator right=expression                           #binary_operator_expression2
     | test_expr=expression  op=comparison_operator pref=(ALL | SOME | ANY) '(' subquery ')'   #sublink_expression
-    | left=expression NOT?  op=BETWEEN right=expression AND right=expression         #binary_mod_expression
-    | right=expression NOT? op=IN '(' (subquery | expression_list) ')'               #binary_mod_expression
-    | left=expression NOT?  op=LIKE right=expression (ESCAPE right=expression)?      #binary_mod_expression
+    | left=expression NOT?  op=BETWEEN right+=expression AND right+=expression          #binary_mod_expression
+    | left=expression NOT? op=IN '(' (subquery | expression_list) ')'                   #binary_in_expression
+    | left=expression NOT?  op=LIKE right+=expression (ESCAPE right+=expression)?       #binary_mod_expression
     | expression IS null_notnull                                                        #binary_operator_expression2
     | '(' search_condition ')'                                                          #bracket_search_expression
 	| DECIMAL                                                                           #decimal_expression
@@ -771,7 +766,7 @@ union
 
 // https://msdn.microsoft.com/en-us/library/ms176104.aspx
 query_specification
-    : SELECT pref=(ALL | DISTINCT)? top_clause
+    : SELECT pref=(ALL | DISTINCT)? top_clause?
       select_list
       // https://msdn.microsoft.com/en-us/library/ms188029.aspx
       (INTO table_name)?
@@ -783,7 +778,7 @@ query_specification
     ;
 
 top_clause
-    : (TOP expression PERCENT? (WITH TIES)?)?
+    : TOP expression PERCENT? (WITH TIES)?
     ;
 
 // https://msdn.microsoft.com/en-us/library/ms188385.aspx
@@ -850,7 +845,7 @@ select_list
     ;
 
 select_list_elem
-    : (table_name '.')? ('*' | '$' (IDENTITY | ROWGUID))
+    : (table_name '.')? (a_star | '$' (IDENTITY | ROWGUID))
     | alias=column_alias '=' expression
     | expression (AS? alias=column_alias)?
     ;
@@ -1005,6 +1000,10 @@ column_alias_list
 column_alias
     : r_id
     | STRING
+    ;
+
+a_star
+    : '*'
     ;
 
 table_value_constructor

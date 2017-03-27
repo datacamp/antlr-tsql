@@ -5,6 +5,8 @@ code:
   query_specification:
     - "SELECT * FROM x.y"
     - "SELECT * FROM x.y WHERE id > 2 AND name NOT LIKE '%ichael'"
+  search_condition:
+    - "id > 111 AND id < 222 OR NOT id = 333"
   select_list_elem:
     # TODO what is the "$" all about?
     - "x.y"
@@ -38,6 +40,7 @@ code:
   predicate:
     - "EXISTS (SELECT x FROM y)"
     - "a > b"
+    - "a > ALL ( SELECT x FROM y)"
     - "a BETWEEN 1 AND 5"
     - "a NOT BETWEEN 1 AND 5"
     - "a IN (1,2,3)"
@@ -47,6 +50,7 @@ code:
     - "(a > b)"
   function_call:
     # aggregate_windowed_function
+    - "cOuNt ( * )"
     - "COUNT(ALL id = 1) OVER ( PARTITION BY a + b ORDER BY a)"
     - "COUNT(*)"
     - "AVG ( ALL id )"
