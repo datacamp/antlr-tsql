@@ -8,6 +8,6 @@ code:
     select_statement:
         - "WITH somevar AS (SELECT x FROM y  ORDER BY id) SELECT a FROM b"
         - "SELECT a FROM b ORDER by id"
-        - "SELECT a FROM b OPTION ( FAST )"
+        - "SELECT a FROM b OPTION ( FAST 1 )"
         - "SELECT a FROM b FOR BROWSE"
         - "SELECT a FROM b UNION SELECT x FROM y ORDER BY id"
