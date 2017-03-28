@@ -134,7 +134,8 @@ class Script(AstNode):
     _priority = 0
 
 class SelectStmt(AstNode):
-    _fields = ['select_list->target_list',
+    _fields = ['pref',
+               'select_list->target_list',
                'top_clause',
                'table_name->into_clause', 
                'table_sources->from_clause', 
