@@ -1,0 +1,4 @@
+parser_name: tsql
+code:
+    simple_id:
+        - "size"
