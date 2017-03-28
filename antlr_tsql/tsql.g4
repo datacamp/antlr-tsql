@@ -137,8 +137,10 @@ delete_statement
       for_clause? option_clause? ';'?
     ;
 
+// MC-Note: with_table_hints was originally inside table_alias, don't know if it
+//          applies here
 delete_statement_from
-    : table_alias
+    : r_id with_table_hints?
     | ddl_object
     | rowset_function_limited
     | table_var=LOCAL_ID
@@ -757,11 +759,13 @@ predicate
     ;
 
 query_expression
-    : (query_specification | '(' query_expression ')') union*
+    : '(' query_expression ')'                                       #bracket_query_expression
+    | left=query_expression op=union_op right=query_expression       #union_query_expression
+    | query_specification                                            #query_specification_expression
     ;
 
-union
-    : (UNION ALL? | EXCEPT | INTERSECT) (query_specification | ('(' query_expression ')')+)
+union_op
+    : (UNION ALL? | EXCEPT | INTERSECT)
     ;
 
 // https://msdn.microsoft.com/en-us/library/ms176104.aspx
@@ -784,8 +788,13 @@ top_clause
 // https://msdn.microsoft.com/en-us/library/ms188385.aspx
 order_by_clause
     : ORDER BY order_by_expression (',' order_by_expression)*
-      (OFFSET expression (ROW | ROWS) (FETCH (FIRST | NEXT) expression (ROW | ROWS) ONLY)?)?
+      (OFFSET offset=expression (ROW | ROWS) fetch_expression?)?
     ;
+
+fetch_expression
+    : FETCH (FIRST | NEXT) expression (ROW | ROWS) ONLY
+    ;
+
 
 // https://msdn.microsoft.com/en-us/library/ms173812.aspx
 for_clause
@@ -799,7 +808,7 @@ xml_common_directives
     ;
 
 order_by_expression
-    : expression (ASC | DESC)?
+    : expression direction=(ASC | DESC)?
     ;
 
 group_by_item
@@ -855,40 +864,45 @@ table_sources
     ;
 
 // https://msdn.microsoft.com/en-us/library/ms177634.aspx
+// https://msdn.microsoft.com/en-us/library/ms191472.aspx
 table_source
-    : table_source_item_joined
-    | '(' table_source_item_joined ')'
+    : '(' table_source ')'                                                    #bracket_table_source
+    // https://msdn.microsoft.com/en-us/library/ms173815(v=sql.120).aspx
+    | left=table_source join_type JOIN right=table_source ON search_condition #standard_join
+    | left=table_source op=CROSS JOIN  right=table_source                     #cross_join
+    | left=table_source op=(CROSS | OUTER) APPLY right=table_source           #apply_join
+    | table_source_item                                                       #table_source_item_join
     ;
 
+/*
 table_source_item_joined
     : table_source_item join_part*
     ;
+*/
 
 table_source_item
-    : table_name_with_hint        as_table_alias?
-    | rowset_function             as_table_alias?
-    | derived_table              (as_table_alias column_alias_list?)?
-    | change_table                as_table_alias
-    | function_call               as_table_alias?
-    | LOCAL_ID                    as_table_alias?
-    | LOCAL_ID '.' function_call (as_table_alias column_alias_list?)?
+    : table_name                  table_alias? with_table_hints?     #table_source_item_name
+    | rowset_function             table_alias?                       #table_source_item_simple
+    | derived_table              (table_alias column_alias_list?)?   #table_source_item_complex
+    | change_table                table_alias?                       #table_source_item_simple
+    | function_call               table_alias?                       #table_source_item_simple
+    | LOCAL_ID                    table_alias?                       #table_source_item_simple
+    | LOCAL_ID '.' function_call (table_alias column_alias_list?)?   #table_source_item_complex
+    ;
+
+table_alias
+    : AS? r_id
     ;
 
 change_table
     : CHANGETABLE '(' CHANGES table_name ',' (NULL | DECIMAL | LOCAL_ID) ')'
     ;
 
-// https://msdn.microsoft.com/en-us/library/ms191472.aspx
-join_part
-    // https://msdn.microsoft.com/en-us/library/ms173815(v=sql.120).aspx
-    : (INNER? |
-       join_type=(LEFT | RIGHT | FULL) OUTER?) (join_hint=(LOOP | HASH | MERGE | REMOTE))?
-       JOIN table_source ON search_condition
-    | CROSS JOIN table_source
-    | CROSS APPLY table_source
-    | OUTER APPLY table_source
+join_type
+    : (INNER? | (LEFT | RIGHT | FULL) OUTER?) (join_hint=(LOOP | HASH | MERGE | REMOTE))?
     ;
 
+// MC-NOTE: It's not clear if this rule is necessary in most places
 table_name_with_hint
     : table_name with_table_hints?
     ;
@@ -956,14 +970,6 @@ switch_section
 
 switch_search_condition_section
     : WHEN whenExpr=search_condition THEN thenExpr=expression
-    ;
-
-as_table_alias
-    : AS? table_alias
-    ;
-
-table_alias
-    : r_id with_table_hints?
     ;
 
 // https://msdn.microsoft.com/en-us/library/ms187373.aspx

@@ -4,3 +4,32 @@ code:
         - "size"
     query_specification:
         - "SELECT DISTINCT x FROM y" # fixed
+    query_expression: 
+        - "( SELECT x FROM y )"
+        - "SELECT x FROM y UNION SELECT a FROM b"
+    select_statement:
+        - "WITH somevar AS (SELECT x FROM y  ORDER BY id) SELECT a FROM b"
+        - "SELECT a FROM b ORDER by id"
+        - "SELECT a FROM b OPTION ( FAST 1 )"
+        - "SELECT a FROM b FOR BROWSE"
+        - "SELECT a FROM b UNION SELECT x FROM y ORDER BY id"
+        - "SELECT a FROM b JOIN c ON id = id UNION SELECT x FROM y as z ORDER by id"
+    order_by_clause:
+        - "ORDER BY id ASC"
+        - "ORDER BY id ASC, name DESC"
+        - "ORDER BY id OFFSET 10 ROWS"
+        - "ORDER BY id OFFSET 10 ROWS FETCH FIRST 2 ROWS ONLY"
+    table_source:
+        - "(a JOIN b on id = id)"
+        - "a JOIN b on id = id"
+        - "a JOIN b ON a.id = b.id"
+        - "a JOIN b on ida = idb JOIN c on idb = idc"
+        - "a INNER JOIN b on id = id"
+        - "a OUTER HASH JOIN b on id =id"
+        - "a CROSS JOIN b"
+        - "a CROSS APPLY b"
+        - "a LEFT OUTER APPLY b"
+    table_source_item:
+        - "a AS b"
+        # TODO
+        - "a AS b WITH (INDEX = x)"

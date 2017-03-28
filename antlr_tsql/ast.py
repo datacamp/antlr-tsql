@@ -143,12 +143,45 @@ class SelectStmt(AstNode):
                'group_by_item->group_by_clause', 
                'having']
 
+    @classmethod
+    def _from_select_rule(cls, visitor, ctx):
+        fields = ['with_expression->with_expr', 
+                  'order_by_clause', 'for_clause', 'option_clause']
+        
+        q_node = visitor.visit(ctx.query_expression())
+        
+        outer_sel = cls._from_fields(visitor, ctx, fields)
+
+        for k in [el.split('->')[-1] for el in fields]:
+            attr = getattr(outer_sel, k, None)
+            if attr is not None: setattr(q_node, k, attr)
+
+        q_node._fields = q_node._fields + fields
+
+        return q_node
+
+class Union(AstNode):
+    _fields = ['left', 'op', 'right']        
+
+
 class Identifier(AstNode):
     # should have server, database, schema, table, name
     _fields = ['server', 'database', 'schema', 'table', 'name']
 
 class AliasExpr(AstNode):
     _fields = ['expression->expr', 'alias']
+
+    @classmethod
+    def _from_source_table_item(cls, visitor, ctx):
+        if ctx.with_table_hints(): return visitor.visitChildren(ctx)
+
+        ctx_alias = ctx.table_alias()
+        if ctx_alias:
+            expr  = visitor.visit(ctx.children[0])
+            alias = visitor.visit(ctx_alias)
+            return cls(ctx_alias, expr=expr, alias=alias)
+        else:
+            return visitor.visitChildren(ctx)
 
 class Star(AstNode):
     _fields = []
@@ -171,6 +204,27 @@ class UnaryExpr(AstNode):
 
 class TopExpr(AstNode):
     _fields = ['expression->expr', 'PERCENT->percent', 'WITH->with_ties']
+
+class OrderByExpr(AstNode):
+    _fields = ['order_by_expression->expr', 'offset', 'fetch_expression->fetch']
+
+class SortBy(AstNode):
+    _fields = ['expression->expr', 'direction']
+
+class JoinExpr(AstNode):
+    _fields = ['left', 'op->join_type', 'join_type', 'right'
+               'table_source->source', 'search_condition->cond']
+
+    @classmethod
+    def _from_apply(cls, visitor, ctx):
+        join_expr = JoinExpr._from_fields(visitor, ctx)
+        if ctx.APPLY(): join_expr.join_type += ' APPLY'
+
+        return join_expr
+
+    @classmethod
+    def _from_table_source_item_joined(cls, visitor, ctx):
+        visitor.visit(ctx.join_part())
 
 class Case(AstNode):
     _fields = ['caseExpr->input', 'switch_search_condition_section->switches', 'switch_section->switches', 'elseExpr->else_expr']
@@ -274,8 +328,14 @@ class AstVisitor(tsqlVisitor):
     def visitTsql_file(self, ctx):
         return Script._from_fields(self, ctx)
 
+    def visitSelect_statement(self, ctx):
+        return SelectStmt._from_select_rule(self, ctx)
+
     def visitQuery_specification(self, ctx):
         return SelectStmt._from_fields(self, ctx)
+
+    def visitUnion_query_expression(self, ctx):
+        return Union._from_fields(self, ctx)
 
     def visitFull_column_name(self, ctx):
         if ctx.table:
@@ -333,8 +393,29 @@ class AstVisitor(tsqlVisitor):
         else:
             return self.visitChildren(ctx)
 
+    def visitTable_source_item_name(self, ctx):
+        return AliasExpr._from_source_table_item(self, ctx)
+
     def visitTop_clause(self, ctx):
         return TopExpr._from_fields(self, ctx)
+
+    def visitOrder_by_clause(self, ctx):
+        return OrderByExpr._from_fields(self, ctx)
+
+    def visitOrder_by_expression(self, ctx):
+        return SortBy._from_fields(self, ctx)
+
+    def visitFetch_expression(self, ctx):
+        return self.visit(ctx.expression())
+
+    def visitStandard_join(self, ctx):
+        return JoinExpr._from_fields(self, ctx)
+
+    def visitCross_join(self, ctx):
+        return JoinExpr._from_fields(self, ctx)
+
+    def visitApply_join(self, ctx):
+        return JoinExpr._from_apply(self, ctx)
 
     def visitOver_clause(self, ctx):
         return OverClause._from_fields(self, ctx)
@@ -387,6 +468,17 @@ class AstVisitor(tsqlVisitor):
 
     def visitBracket_search_expression(self, ctx): 
         return self.visitChildren(ctx, predicate = lambda n: not isinstance(n, Tree.TerminalNode) )
+
+    def visitBracket_query_expression(self, ctx):
+        return self.visitChildren(ctx, predicate = lambda n: not isinstance(n, Tree.TerminalNode) )
+
+    def visitBracket_table_source(self, ctx):
+        return self.visitChildren(ctx, predicate = lambda n: not isinstance(n, Tree.TerminalNode) )
+
+    def visitTable_alias(self, ctx):
+        return self.visitChildren(ctx, predicate = lambda n: not isinstance(n, Tree.TerminalNode) )
+
+
 
 from antlr4.error.ErrorListener import ErrorListener
 from antlr4.error.Errors import RecognitionException
