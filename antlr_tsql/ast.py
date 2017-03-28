@@ -192,6 +192,12 @@ class UnaryExpr(AstNode):
 class TopExpr(AstNode):
     _fields = ['expression->expr', 'PERCENT->percent', 'WITH->with_ties']
 
+class OrderByExpr(AstNode):
+    _fields = ['order_by_expression->expr', 'offset', 'fetch_expression->fetch']
+
+class SortBy(AstNode):
+    _fields = ['expression->expr', 'direction']
+
 class Case(AstNode):
     _fields = ['caseExpr->input', 'switch_search_condition_section->switches', 'switch_section->switches', 'elseExpr->else_expr']
 
@@ -361,6 +367,15 @@ class AstVisitor(tsqlVisitor):
 
     def visitTop_clause(self, ctx):
         return TopExpr._from_fields(self, ctx)
+
+    def visitOrder_by_clause(self, ctx):
+        return OrderByExpr._from_fields(self, ctx)
+
+    def visitOrder_by_expression(self, ctx):
+        return SortBy._from_fields(self, ctx)
+
+    def visitFetch_expression(self, ctx):
+        return self.visit(ctx.expression())
 
     def visitOver_clause(self, ctx):
         return OverClause._from_fields(self, ctx)

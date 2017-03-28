@@ -11,3 +11,8 @@ code:
         - "SELECT a FROM b OPTION ( FAST 1 )"
         - "SELECT a FROM b FOR BROWSE"
         - "SELECT a FROM b UNION SELECT x FROM y ORDER BY id"
+    order_by_clause:
+        - "ORDER BY id ASC"
+        - "ORDER BY id ASC, name DESC"
+        - "ORDER BY id OFFSET 10 ROWS"
+        - "ORDER BY id OFFSET 10 ROWS FETCH FIRST 2 ROWS ONLY"

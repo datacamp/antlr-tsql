@@ -786,8 +786,13 @@ top_clause
 // https://msdn.microsoft.com/en-us/library/ms188385.aspx
 order_by_clause
     : ORDER BY order_by_expression (',' order_by_expression)*
-      (OFFSET expression (ROW | ROWS) (FETCH (FIRST | NEXT) expression (ROW | ROWS) ONLY)?)?
+      (OFFSET offset=expression (ROW | ROWS) fetch_expression?)?
     ;
+
+fetch_expression
+    : FETCH (FIRST | NEXT) expression (ROW | ROWS) ONLY
+    ;
+
 
 // https://msdn.microsoft.com/en-us/library/ms173812.aspx
 for_clause
@@ -801,7 +806,7 @@ xml_common_directives
     ;
 
 order_by_expression
-    : expression (ASC | DESC)?
+    : expression direction=(ASC | DESC)?
     ;
 
 group_by_item
