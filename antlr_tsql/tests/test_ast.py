@@ -12,11 +12,15 @@ def test_ast_parse_strict():
 #    assert isinstance(tree, ast.Script)
 #    assert sql_txt.replace(' ', '') == tree.batch[0].replace(' ','')   # currently is just raw text
 
-def test_ast_examples_parse():
+@pytest.mark.parametrize('fname', [
+        'visual_checks.yml',
+        'v0.3.yml'
+        ])
+def test_ast_examples_parse(fname):
     # just make sure they don't throw error for now..
     import yaml
     dirname = os.path.dirname(__file__)
-    data = yaml.load(open(dirname + '/visual_checks.yml'))
+    data = yaml.load(open(dirname + '/' + fname))
     for start, cmds in data['code'].items():
-        [ast.parse(cmd, start) for cmd in cmds]
+        [ast.parse(cmd, start, strict=True) for cmd in cmds]
 
