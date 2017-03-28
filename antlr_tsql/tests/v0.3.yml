@@ -2,3 +2,5 @@ parser_name: tsql
 code:
     simple_id:
         - "size"
+    query_specification:
+        - "SELECT DISTINCT x FROM y" # fixed
