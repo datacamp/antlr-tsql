@@ -198,6 +198,21 @@ class OrderByExpr(AstNode):
 class SortBy(AstNode):
     _fields = ['expression->expr', 'direction']
 
+class JoinExpr(AstNode):
+    _fields = ['left', 'op->join_type', 'join_type', 'right'
+               'table_source->source', 'search_condition->cond']
+
+    @classmethod
+    def _from_apply(cls, visitor, ctx):
+        join_expr = JoinExpr._from_fields(visitor, ctx)
+        if ctx.APPLY(): join_expr.join_type += ' APPLY'
+
+        return join_expr
+
+    @classmethod
+    def _from_table_source_item_joined(cls, visitor, ctx):
+        visitor.visit(ctx.join_part())
+
 class Case(AstNode):
     _fields = ['caseExpr->input', 'switch_search_condition_section->switches', 'switch_section->switches', 'elseExpr->else_expr']
 
@@ -377,6 +392,15 @@ class AstVisitor(tsqlVisitor):
     def visitFetch_expression(self, ctx):
         return self.visit(ctx.expression())
 
+    def visitStandard_join(self, ctx):
+        return JoinExpr._from_fields(self, ctx)
+
+    def visitCross_join(self, ctx):
+        return JoinExpr._from_fields(self, ctx)
+
+    def visitApply_join(self, ctx):
+        return JoinExpr._from_apply(self, ctx)
+
     def visitOver_clause(self, ctx):
         return OverClause._from_fields(self, ctx)
 
@@ -430,6 +454,9 @@ class AstVisitor(tsqlVisitor):
         return self.visitChildren(ctx, predicate = lambda n: not isinstance(n, Tree.TerminalNode) )
 
     def visitBracket_query_expression(self, ctx):
+        return self.visitChildren(ctx, predicate = lambda n: not isinstance(n, Tree.TerminalNode) )
+
+    def visitBracket_table_source(self, ctx):
         return self.visitChildren(ctx, predicate = lambda n: not isinstance(n, Tree.TerminalNode) )
 
 

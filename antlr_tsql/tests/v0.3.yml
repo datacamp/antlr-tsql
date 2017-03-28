@@ -16,3 +16,14 @@ code:
         - "ORDER BY id ASC, name DESC"
         - "ORDER BY id OFFSET 10 ROWS"
         - "ORDER BY id OFFSET 10 ROWS FETCH FIRST 2 ROWS ONLY"
+    table_source:
+        - "(a JOIN b on id = id)"
+        - "a JOIN b on id = id"
+        - "a JOIN b ON a.id = b.id"
+        - "a JOIN b on ida = idb JOIN c on idb = idc"
+        - "a INNER JOIN b on id = id"
+        - "a OUTER HASH JOIN b on id =id"
+        - "a CROSS JOIN b"
+        - "a CROSS APPLY b"
+        - "a LEFT OUTER APPLY b"
+    

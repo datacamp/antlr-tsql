@@ -862,14 +862,21 @@ table_sources
     ;
 
 // https://msdn.microsoft.com/en-us/library/ms177634.aspx
+// https://msdn.microsoft.com/en-us/library/ms191472.aspx
 table_source
-    : table_source_item_joined
-    | '(' table_source_item_joined ')'
+    : '(' table_source ')'                                                    #bracket_table_source
+    // https://msdn.microsoft.com/en-us/library/ms173815(v=sql.120).aspx
+    | left=table_source join_type JOIN right=table_source ON search_condition #standard_join
+    | left=table_source op=CROSS JOIN  right=table_source                     #cross_join
+    | left=table_source op=(CROSS | OUTER) APPLY right=table_source           #apply_join
+    | table_source_item                                                       #table_source_item_join
     ;
 
+/*
 table_source_item_joined
     : table_source_item join_part*
     ;
+*/
 
 table_source_item
     : table_name_with_hint        as_table_alias?
@@ -885,15 +892,8 @@ change_table
     : CHANGETABLE '(' CHANGES table_name ',' (NULL | DECIMAL | LOCAL_ID) ')'
     ;
 
-// https://msdn.microsoft.com/en-us/library/ms191472.aspx
-join_part
-    // https://msdn.microsoft.com/en-us/library/ms173815(v=sql.120).aspx
-    : (INNER? |
-       join_type=(LEFT | RIGHT | FULL) OUTER?) (join_hint=(LOOP | HASH | MERGE | REMOTE))?
-       JOIN table_source ON search_condition
-    | CROSS JOIN table_source
-    | CROSS APPLY table_source
-    | OUTER APPLY table_source
+join_type
+    : (INNER? | (LEFT | RIGHT | FULL) OUTER?) (join_hint=(LOOP | HASH | MERGE | REMOTE))?
     ;
 
 table_name_with_hint
