@@ -1331,6 +1331,7 @@ simple_id
     | SELF
     | SERIALIZABLE
     | SIMPLE
+    | SIZE
     | SNAPSHOT
     | SPATIAL_WINDOW_MAX_CELLS
     | STATIC
