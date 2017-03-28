@@ -142,6 +142,27 @@ class SelectStmt(AstNode):
                'group_by_item->group_by_clause', 
                'having']
 
+    @classmethod
+    def _from_select_rule(cls, visitor, ctx):
+        fields = ['with_expression->with_expr', 
+                  'order_by_clause', 'for_clause', 'option_clause']
+        
+        q_node = visitor.visit(ctx.query_expression())
+        
+        outer_sel = cls._from_fields(visitor, ctx, fields)
+
+        for k in [el.split('->')[-1] for el in fields]:
+            attr = getattr(outer_sel, k, None)
+            if attr is not None: setattr(q_node, k, attr)
+
+        q_node._fields = q_node._fields + fields
+
+        return q_node
+
+class Union(AstNode):
+    _fields = ['left', 'op', 'right']        
+
+
 class Identifier(AstNode):
     # should have server, database, schema, table, name
     _fields = ['server', 'database', 'schema', 'table', 'name']
@@ -273,8 +294,14 @@ class AstVisitor(tsqlVisitor):
     def visitTsql_file(self, ctx):
         return Script._from_fields(self, ctx)
 
+    def visitSelect_statement(self, ctx):
+        return SelectStmt._from_select_rule(self, ctx)
+
     def visitQuery_specification(self, ctx):
         return SelectStmt._from_fields(self, ctx)
+
+    def visitUnion_query_expression(self, ctx):
+        return Union._from_fields(self, ctx)
 
     def visitFull_column_name(self, ctx):
         if ctx.table:
@@ -386,6 +413,10 @@ class AstVisitor(tsqlVisitor):
 
     def visitBracket_search_expression(self, ctx): 
         return self.visitChildren(ctx, predicate = lambda n: not isinstance(n, Tree.TerminalNode) )
+
+    def visitBracket_query_expression(self, ctx):
+        return self.visitChildren(ctx, predicate = lambda n: not isinstance(n, Tree.TerminalNode) )
+
 
 from antlr4.error.ErrorListener import ErrorListener
 from antlr4.error.Errors import RecognitionException

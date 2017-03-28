@@ -757,11 +757,13 @@ predicate
     ;
 
 query_expression
-    : (query_specification | '(' query_expression ')') union*
+    : '(' query_expression ')'                                       #bracket_query_expression
+    | left=query_expression op=union_op right=query_expression       #union_query_expression
+    | query_specification                                            #query_specification_expression
     ;
 
-union
-    : (UNION ALL? | EXCEPT | INTERSECT) (query_specification | ('(' query_expression ')')+)
+union_op
+    : (UNION ALL? | EXCEPT | INTERSECT)
     ;
 
 // https://msdn.microsoft.com/en-us/library/ms176104.aspx

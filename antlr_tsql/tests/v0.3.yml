@@ -2,3 +2,12 @@ parser_name: tsql
 code:
     simple_id:
         - "size"
+    query_expression: 
+        - "( SELECT x FROM y )"
+        - "SELECT x FROM y UNION SELECT a FROM b"
+    select_statement:
+        - "WITH somevar AS (SELECT x FROM y  ORDER BY id) SELECT a FROM b"
+        - "SELECT a FROM b ORDER by id"
+        - "SELECT a FROM b OPTION ( FAST )"
+        - "SELECT a FROM b FOR BROWSE"
+        - "SELECT a FROM b UNION SELECT x FROM y ORDER BY id"
