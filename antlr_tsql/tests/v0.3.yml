@@ -2,6 +2,8 @@ parser_name: tsql
 code:
     simple_id:
         - "size"
+    query_specification:
+        - "SELECT DISTINCT x FROM y" # fixed
     query_expression: 
         - "( SELECT x FROM y )"
         - "SELECT x FROM y UNION SELECT a FROM b"
@@ -31,4 +33,3 @@ code:
         - "a AS b"
         # TODO
         - "a AS b WITH (INDEX = x)"
-    
