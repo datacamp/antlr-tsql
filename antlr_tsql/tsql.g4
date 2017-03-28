@@ -137,8 +137,10 @@ delete_statement
       for_clause? option_clause? ';'?
     ;
 
+// MC-Note: with_table_hints was originally inside table_alias, don't know if it
+//          applies here
 delete_statement_from
-    : table_alias
+    : r_id with_table_hints?
     | ddl_object
     | rowset_function_limited
     | table_var=LOCAL_ID
@@ -879,13 +881,17 @@ table_source_item_joined
 */
 
 table_source_item
-    : table_name_with_hint        as_table_alias?
-    | rowset_function             as_table_alias?
-    | derived_table              (as_table_alias column_alias_list?)?
-    | change_table                as_table_alias
-    | function_call               as_table_alias?
-    | LOCAL_ID                    as_table_alias?
-    | LOCAL_ID '.' function_call (as_table_alias column_alias_list?)?
+    : table_name                  table_alias? with_table_hints?     #table_source_item_name
+    | rowset_function             table_alias?                       #table_source_item_simple
+    | derived_table              (table_alias column_alias_list?)?   #table_source_item_complex
+    | change_table                table_alias?                       #table_source_item_simple
+    | function_call               table_alias?                       #table_source_item_simple
+    | LOCAL_ID                    table_alias?                       #table_source_item_simple
+    | LOCAL_ID '.' function_call (table_alias column_alias_list?)?   #table_source_item_complex
+    ;
+
+table_alias
+    : AS? r_id
     ;
 
 change_table
@@ -896,6 +902,7 @@ join_type
     : (INNER? | (LEFT | RIGHT | FULL) OUTER?) (join_hint=(LOOP | HASH | MERGE | REMOTE))?
     ;
 
+// MC-NOTE: It's not clear if this rule is necessary in most places
 table_name_with_hint
     : table_name with_table_hints?
     ;
@@ -963,14 +970,6 @@ switch_section
 
 switch_search_condition_section
     : WHEN whenExpr=search_condition THEN thenExpr=expression
-    ;
-
-as_table_alias
-    : AS? table_alias
-    ;
-
-table_alias
-    : r_id with_table_hints?
     ;
 
 // https://msdn.microsoft.com/en-us/library/ms187373.aspx

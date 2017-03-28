@@ -170,6 +170,18 @@ class Identifier(AstNode):
 class AliasExpr(AstNode):
     _fields = ['expression->expr', 'alias']
 
+    @classmethod
+    def _from_source_table_item(cls, visitor, ctx):
+        if ctx.with_table_hints(): return visitor.visitChildren(ctx)
+
+        ctx_alias = ctx.table_alias()
+        if ctx_alias:
+            expr  = visitor.visit(ctx.children[0])
+            alias = visitor.visit(ctx_alias)
+            return cls(ctx_alias, expr=expr, alias=alias)
+        else:
+            return visitor.visitChildren(ctx)
+
 class Star(AstNode):
     _fields = []
 
@@ -380,6 +392,9 @@ class AstVisitor(tsqlVisitor):
         else:
             return self.visitChildren(ctx)
 
+    def visitTable_source_item_name(self, ctx):
+        return AliasExpr._from_source_table_item(self, ctx)
+
     def visitTop_clause(self, ctx):
         return TopExpr._from_fields(self, ctx)
 
@@ -458,6 +473,10 @@ class AstVisitor(tsqlVisitor):
 
     def visitBracket_table_source(self, ctx):
         return self.visitChildren(ctx, predicate = lambda n: not isinstance(n, Tree.TerminalNode) )
+
+    def visitTable_alias(self, ctx):
+        return self.visitChildren(ctx, predicate = lambda n: not isinstance(n, Tree.TerminalNode) )
+
 
 
 from antlr4.error.ErrorListener import ErrorListener

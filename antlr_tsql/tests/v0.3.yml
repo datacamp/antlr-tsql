@@ -11,6 +11,7 @@ code:
         - "SELECT a FROM b OPTION ( FAST 1 )"
         - "SELECT a FROM b FOR BROWSE"
         - "SELECT a FROM b UNION SELECT x FROM y ORDER BY id"
+        - "SELECT a FROM b JOIN c ON id = id UNION SELECT x FROM y as z ORDER by id"
     order_by_clause:
         - "ORDER BY id ASC"
         - "ORDER BY id ASC, name DESC"
@@ -26,4 +27,8 @@ code:
         - "a CROSS JOIN b"
         - "a CROSS APPLY b"
         - "a LEFT OUTER APPLY b"
+    table_source_item:
+        - "a AS b"
+        # TODO
+        - "a AS b WITH (INDEX = x)"
     
