@@ -289,7 +289,7 @@ class Call(AstNode):
 
     @classmethod
     def _from_cast(cls, visitor, ctx):
-        args = [AliasExpr(expr = ctx.expression().accept(visitor), alias=ctx.alias.accept(visitor))]
+        args = [AliasExpr(ctx, expr = ctx.expression().accept(visitor), alias=ctx.alias.accept(visitor))]
         return cls(ctx, name = cls.get_name(ctx), args = args)
 
 
