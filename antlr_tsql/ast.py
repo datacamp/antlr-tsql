@@ -103,9 +103,9 @@ class AstNode(AST):         # AST is subclassed only so we can use ast.NodeVisit
     def _get_pos(self):
         ctx = self._ctx
         d = {'line_start': ctx.start.line,
-                'column_start': ctx.start.start,
+                'column_start': ctx.start.column,
                 'line_end': ctx.stop.line,
-                'column_end': ctx.stop.stop}
+                'column_end': ctx.stop.column}
         return d
 
     def _dump(self):
