@@ -141,6 +141,10 @@ class Script(AstNode):
     _fields = ['batch']
     _priority = 0
 
+class Batch(AstNode):
+    _fields = ['sql_clauses->statements']
+    _priority = 0
+
 class SelectStmt(AstNode):
     _fields = ['pref',
                'select_list->target_list',
@@ -368,6 +372,9 @@ class AstVisitor(tsqlVisitor):
     def visitTsql_file(self, ctx):
         return Script._from_fields(self, ctx)
 
+    def visitBatch(self, ctx):
+        return Batch._from_fields(self, ctx)
+
     def visitSelect_statement(self, ctx):
         return SelectStmt._from_select_rule(self, ctx)
 
@@ -512,6 +519,10 @@ class AstVisitor(tsqlVisitor):
     # simple dropping of tokens -----------------------------------------------
     # Note can't filter out TerminalNodeImpl from some currently as in something like
     # "SELECT a FROM b WHERE 1", the 1 will be a terminal node in where_clause
+
+    def visitSql_clauses(self, ctx):
+        return self.visitChildren(ctx, predicate = lambda n: not isinstance(n, Tree.TerminalNode) )
+
     def visitSelect_list(self, ctx):
         return self.visitChildren(ctx, predicate = lambda n: not isinstance(n, Tree.TerminalNode) )
 
