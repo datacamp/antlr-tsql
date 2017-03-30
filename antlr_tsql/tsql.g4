@@ -133,7 +133,7 @@ delete_statement
       insert_with_table_hints?
       output_clause?
       (FROM table_sources)?
-      (WHERE (search_condition | CURRENT OF (GLOBAL? cursor_name | cursor_var=LOCAL_ID)))?
+      where_clause_dml?
       for_clause? option_clause? ';'?
     ;
 
@@ -179,10 +179,13 @@ update_statement
       SET update_elem (',' update_elem)*
       output_clause?
       (FROM table_sources)?
-      (WHERE (search_condition_list | CURRENT OF (GLOBAL? cursor_name | cursor_var=LOCAL_ID)))?
+      where_clause_dml?
       for_clause? option_clause? ';'?
     ;
 
+where_clause_dml
+    : WHERE (search_condition_list | CURRENT OF (GLOBAL? cursor_name | cursor_var=LOCAL_ID))
+    ;
 // https://msdn.microsoft.com/en-us/library/ms177564.aspx
 output_clause
     : OUTPUT output_dml_list_elem (',' output_dml_list_elem)*

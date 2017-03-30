@@ -149,16 +149,18 @@ class SelectStmt(AstNode):
                   'order_by_clause', 'for_clause', 'option_clause']
         
         q_node = visitor.visit(ctx.query_expression())
-        
-        outer_sel = cls._from_fields(visitor, ctx, fields)
+        # q_node may be None if there was a parsing error
+        if q_node:
+            outer_sel = cls._from_fields(visitor, ctx, fields)
 
-        for k in [el.split('->')[-1] for el in fields]:
-            attr = getattr(outer_sel, k, None)
-            if attr is not None: setattr(q_node, k, attr)
+            for k in [el.split('->')[-1] for el in fields]:
+                attr = getattr(outer_sel, k, None)
+                if attr is not None: setattr(q_node, k, attr)
 
-        q_node._fields = q_node._fields + fields
+            q_node._fields = q_node._fields + fields
 
-        return q_node
+            return q_node
+        else: return visitor.visitChildren(ctx)
 
 class InsertStmt(AstNode):
     _fields = ['with_expression->with_expr', 'top_clause_dm->top_clause', 
@@ -170,6 +172,25 @@ class InsertStmt(AstNode):
 
 class ValueList(AstNode):
     _fields = ['expression_list->values']
+
+class DeleteStmt(AstNode):
+    _fields = ['with_expression->with_expr', 'top_clause_dm->top_clause',
+               'from_clause', 
+               'delete_statement_from->from_clause',
+               'insert_with_table_hints->table_hints',
+               'output_clause', 
+               'table_sources->from_source', 'where_clause_dml->where_clause',
+               'for_clause', 'option_clause']
+
+class UpdateStmt(AstNode):
+    _fields = ['with_expression->with_expr', 'top_clause_dm->top_clause',
+               'ddl_object->target', 'rowset_function_limited->target',    # TODO make these own rule in grammar?
+               'insert_with_table_hints->table_hints',
+               # SET update elem
+               'output_clause', 
+               'table_sources->from_source', 'where_clause_dml->where_clause',
+               'for_clause', 'option_clause']
+
 
 class Union(AstNode):
     _fields = ['left', 'op', 'right']        
@@ -348,6 +369,12 @@ class AstVisitor(tsqlVisitor):
     def visitInsert_statement(self, ctx):
         return InsertStmt._from_fields(self, ctx)
 
+    def visitDelete_statement(self, ctx):
+        return DeleteStmt._from_fields(self, ctx)
+
+    def visitUpdate_statement(self, ctx):
+        return UpdateStmt._from_fields(self, ctx)
+
     def visitUnion_query_expression(self, ctx):
         return Union._from_fields(self, ctx)
 
@@ -499,6 +526,9 @@ class AstVisitor(tsqlVisitor):
         return self.visitChildren(ctx, predicate = lambda n: not isinstance(n, Tree.TerminalNode) )
 
     def visitTable_value_constructor(self, ctx):
+        return self.visitChildren(ctx, predicate = lambda n: not isinstance(n, Tree.TerminalNode) )
+
+    def visitWhere_clause_dml(self, ctx):
         return self.visitChildren(ctx, predicate = lambda n: not isinstance(n, Tree.TerminalNode) )
 
     def visitColumn_name_list(self, ctx):
