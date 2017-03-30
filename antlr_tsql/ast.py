@@ -105,7 +105,7 @@ class AstNode(AST):         # AST is subclassed only so we can use ast.NodeVisit
         d = {'line_start': ctx.start.line,
                 'column_start': ctx.start.column,
                 'line_end': ctx.stop.line,
-                'column_end': ctx.stop.column}
+                'column_end': ctx.stop.column + ctx.stop.stop - ctx.stop.start}
         return d
 
     def _dump(self):
