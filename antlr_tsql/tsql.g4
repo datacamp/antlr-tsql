@@ -128,12 +128,12 @@ another_statement
 // https://msdn.microsoft.com/en-us/library/ms189835.aspx
 delete_statement
     : with_expression?
-      DELETE (TOP '(' expression ')' PERCENT?)?
+      DELETE top_clause_dm?
       FROM? delete_statement_from
       insert_with_table_hints?
       output_clause?
       (FROM table_sources)?
-      (WHERE (search_condition | CURRENT OF (GLOBAL? cursor_name | cursor_var=LOCAL_ID)))?
+      where_clause_dml?
       for_clause? option_clause? ';'?
     ;
 
@@ -149,7 +149,7 @@ delete_statement_from
 // https://msdn.microsoft.com/en-us/library/ms174335.aspx
 insert_statement
     : with_expression?
-      INSERT (TOP '(' expression ')' PERCENT?)?
+      INSERT top_clause_dm?
       INTO? (ddl_object | rowset_function_limited)
       insert_with_table_hints?
       ('(' column_name_list ')')?
@@ -173,16 +173,19 @@ select_statement
 // https://msdn.microsoft.com/en-us/library/ms177523.aspx
 update_statement
     : with_expression?
-      UPDATE (TOP '(' expression ')' PERCENT?)?
+      UPDATE top_clause_dm
       (ddl_object | rowset_function_limited)
       with_table_hints?
       SET update_elem (',' update_elem)*
       output_clause?
       (FROM table_sources)?
-      (WHERE (search_condition_list | CURRENT OF (GLOBAL? cursor_name | cursor_var=LOCAL_ID)))?
+      where_clause_dml?
       for_clause? option_clause? ';'?
     ;
 
+where_clause_dml
+    : WHERE (search_condition_list | CURRENT OF (GLOBAL? cursor_name | cursor_var=LOCAL_ID))
+    ;
 // https://msdn.microsoft.com/en-us/library/ms177564.aspx
 output_clause
     : OUTPUT output_dml_list_elem (',' output_dml_list_elem)*
@@ -785,6 +788,10 @@ top_clause
     : TOP expression PERCENT? (WITH TIES)?
     ;
 
+top_clause_dm
+    : TOP '(' expression ')' PERCENT?
+    ;
+
 // https://msdn.microsoft.com/en-us/library/ms188385.aspx
 order_by_clause
     : ORDER BY order_by_expression (',' order_by_expression)*
@@ -954,6 +961,8 @@ function_call
     | DATEPART '(' ID ',' expression ')'                                #standard_call
     // https://msdn.microsoft.com/en-us/library/ms189838.aspx
     | IDENTITY '(' data_type (',' seed=DECIMAL)? (',' increment=DECIMAL)? ')' #standard_call
+    // https://docs.microsoft.com/en-us/sql/t-sql/functions/logical-functions-iif-transact-sql
+    | IIF '(' search_condition ',' expression ',' expression ')'        #standard_call
     // https://msdn.microsoft.com/en-us/library/bb839514.aspx
     | MIN_ACTIVE_ROWVERSION                                             #simple_call
     // https://msdn.microsoft.com/en-us/library/ms177562.aspx
@@ -1013,11 +1022,15 @@ a_star
     ;
 
 table_value_constructor
-    : VALUES '(' expression_list ')' (',' '(' expression_list ')')*
+    : VALUES value_list (',' value_list)*
     ;
 
 expression_list
     : expression (',' expression)*
+    ;
+
+value_list
+    : '(' expression_list ')'
     ;
 
 // https://msdn.microsoft.com/en-us/library/ms189798.aspx
@@ -1466,6 +1479,7 @@ HAVING:                                H A V I N G;
 IDENTITY:                              I D E N T I T Y;
 IDENTITYCOL:                           I D E N T I T Y C O L;
 IDENTITY_INSERT:                       I D E N T I T Y '_' I N S E R T;
+IIF:                                   I I F;
 IF:                                    I F;
 IN:                                    I N;
 INDEX:                                 I N D E X;
