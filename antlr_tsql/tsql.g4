@@ -954,6 +954,8 @@ function_call
     | DATEPART '(' ID ',' expression ')'                                #standard_call
     // https://msdn.microsoft.com/en-us/library/ms189838.aspx
     | IDENTITY '(' data_type (',' seed=DECIMAL)? (',' increment=DECIMAL)? ')' #standard_call
+    // https://docs.microsoft.com/en-us/sql/t-sql/functions/logical-functions-iif-transact-sql
+    | IIF '(' search_condition ',' expression ',' expression ')'        #standard_call
     // https://msdn.microsoft.com/en-us/library/bb839514.aspx
     | MIN_ACTIVE_ROWVERSION                                             #simple_call
     // https://msdn.microsoft.com/en-us/library/ms177562.aspx
@@ -1466,6 +1468,7 @@ HAVING:                                H A V I N G;
 IDENTITY:                              I D E N T I T Y;
 IDENTITYCOL:                           I D E N T I T Y C O L;
 IDENTITY_INSERT:                       I D E N T I T Y '_' I N S E R T;
+IIF:                                   I I F;
 IF:                                    I F;
 IN:                                    I N;
 INDEX:                                 I N D E X;

@@ -1,0 +1,5 @@
+parser_name: tsql
+code:
+    function_call:
+        - "IIF( 1 > 2, 'yes', 'no')"
+
