@@ -2,4 +2,10 @@ parser_name: tsql
 code:
     function_call:
         - "IIF( 1 > 2, 'yes', 'no')"
-
+    insert_statement:
+        - "WITH somevar AS (SELECT x FROM y) INSERT INTO simple VALUES (1,2,3), (4,5,6)"
+    value_list:
+        - "(1,2,a), (4,s,6+1)"
+    # TODO: fix sqlwhat-viewer to not try to call [somelist].dump
+    #column_name_list:
+    #    - "a, b, c, [d]"

@@ -160,6 +160,17 @@ class SelectStmt(AstNode):
 
         return q_node
 
+class InsertStmt(AstNode):
+    _fields = ['with_expression->with_expr', 'top_clause_dm->top_clause', 
+               'INTO->into',
+               'ddl_object->target', 'rowset_function_limited->target',    # TODO make these own rule in grammar?
+               'insert_with_table_hints->table_hints',
+               'column_name_list->column_names', 'output_clause', 'insert_statement_value->values_clause',
+               'for_clause', 'option_clause']
+
+class ValueList(AstNode):
+    _fields = ['expression_list->values']
+
 class Union(AstNode):
     _fields = ['left', 'op', 'right']        
 
@@ -334,6 +345,9 @@ class AstVisitor(tsqlVisitor):
     def visitQuery_specification(self, ctx):
         return SelectStmt._from_fields(self, ctx)
 
+    def visitInsert_statement(self, ctx):
+        return InsertStmt._from_fields(self, ctx)
+
     def visitUnion_query_expression(self, ctx):
         return Union._from_fields(self, ctx)
 
@@ -399,6 +413,9 @@ class AstVisitor(tsqlVisitor):
     def visitTop_clause(self, ctx):
         return TopExpr._from_fields(self, ctx)
 
+    def visitTop_clause_dm(self, ctx):
+        return TopExpr._from_fields(self, ctx)
+
     def visitOrder_by_clause(self, ctx):
         return OrderByExpr._from_fields(self, ctx)
 
@@ -445,6 +462,9 @@ class AstVisitor(tsqlVisitor):
         args = [c.accept(self) for c in ctx.children if not isinstance(c, Tree.TerminalNode)]
         return args
 
+    def visitValue_list(self, ctx):
+        return ValueList._from_fields(self, ctx)
+
     def visitAggregate_windowed_function(self, ctx):
         return Call._from_aggregate(self, ctx)
 
@@ -477,6 +497,13 @@ class AstVisitor(tsqlVisitor):
 
     def visitTable_alias(self, ctx):
         return self.visitChildren(ctx, predicate = lambda n: not isinstance(n, Tree.TerminalNode) )
+
+    def visitTable_value_constructor(self, ctx):
+        return self.visitChildren(ctx, predicate = lambda n: not isinstance(n, Tree.TerminalNode) )
+
+    def visitColumn_name_list(self, ctx):
+        return [Identifier(c, name=c.accept(self)) for c in ctx.children if not isinstance(c, Tree.TerminalNode)]
+
 
 
 

@@ -128,7 +128,7 @@ another_statement
 // https://msdn.microsoft.com/en-us/library/ms189835.aspx
 delete_statement
     : with_expression?
-      DELETE (TOP '(' expression ')' PERCENT?)?
+      DELETE top_clause_dm?
       FROM? delete_statement_from
       insert_with_table_hints?
       output_clause?
@@ -149,7 +149,7 @@ delete_statement_from
 // https://msdn.microsoft.com/en-us/library/ms174335.aspx
 insert_statement
     : with_expression?
-      INSERT (TOP '(' expression ')' PERCENT?)?
+      INSERT top_clause_dm?
       INTO? (ddl_object | rowset_function_limited)
       insert_with_table_hints?
       ('(' column_name_list ')')?
@@ -173,7 +173,7 @@ select_statement
 // https://msdn.microsoft.com/en-us/library/ms177523.aspx
 update_statement
     : with_expression?
-      UPDATE (TOP '(' expression ')' PERCENT?)?
+      UPDATE top_clause_dm
       (ddl_object | rowset_function_limited)
       with_table_hints?
       SET update_elem (',' update_elem)*
@@ -785,6 +785,10 @@ top_clause
     : TOP expression PERCENT? (WITH TIES)?
     ;
 
+top_clause_dm
+    : TOP '(' expression ')' PERCENT?
+    ;
+
 // https://msdn.microsoft.com/en-us/library/ms188385.aspx
 order_by_clause
     : ORDER BY order_by_expression (',' order_by_expression)*
@@ -1015,11 +1019,15 @@ a_star
     ;
 
 table_value_constructor
-    : VALUES '(' expression_list ')' (',' '(' expression_list ')')*
+    : VALUES value_list (',' value_list)*
     ;
 
 expression_list
     : expression (',' expression)*
+    ;
+
+value_list
+    : '(' expression_list ')'
     ;
 
 // https://msdn.microsoft.com/en-us/library/ms189798.aspx
