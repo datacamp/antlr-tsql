@@ -198,7 +198,7 @@ class UpdateStmt(AstNode):
     _fields = ['with_expression->with_expr', 'top_clause_dm->top_clause',
                'ddl_object->target', 'rowset_function_limited->target',    # TODO make these own rule in grammar?
                'insert_with_table_hints->table_hints',
-               # SET update elem
+               'update_elem->set_clause',
                'output_clause', 
                'table_sources->from_source', 'where_clause_dml->where_clause',
                'for_clause', 'option_clause']
