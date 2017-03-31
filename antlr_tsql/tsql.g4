@@ -173,7 +173,7 @@ select_statement
 // https://msdn.microsoft.com/en-us/library/ms177523.aspx
 update_statement
     : with_expression?
-      UPDATE top_clause_dm
+      UPDATE top_clause_dm?
       (ddl_object | rowset_function_limited)
       with_table_hints?
       SET update_elem (',' update_elem)*
