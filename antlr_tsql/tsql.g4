@@ -936,6 +936,7 @@ function_call
     : ranking_windowed_function                                         #rank_call
     | aggregate_windowed_function                                       #aggregate_call
     | scalar_function_name '(' expression_list? ')'                     #standard_call
+    | next_value_for_function                                           #nvf_call
     // https://msdn.microsoft.com/en-us/library/ms173784.aspx
     | BINARY_CHECKSUM '(' '*' ')'                                       #standard_call
     // https://msdn.microsoft.com/en-us/library/hh231076.aspx
@@ -1031,6 +1032,16 @@ expression_list
 
 value_list
     : '(' expression_list ')'
+    ;
+
+
+// https://docs.microsoft.com/en-us/sql/t-sql/functions/next-value-for-transact-sql
+next_value_for
+    : NEXT VALUE FOR
+    ;
+
+next_value_for_function
+    : next_value_for args=func_proc_name over_clause
     ;
 
 // https://msdn.microsoft.com/en-us/library/ms189798.aspx
@@ -1498,6 +1509,7 @@ LOAD:                                  L O A D;
 LOG:                                   L O G;
 MERGE:                                 M E R G E;
 NATIONAL:                              N A T I O N A L;
+NEXT:                                  N E X T;
 NOCHECK:                               N O C H E C K;
 NONCLUSTERED:                          N O N C L U S T E R E D;
 NONE:                                  N O N E;
@@ -1578,6 +1590,7 @@ UPDATETEXT:                            U P D A T E T E X T;
 USE:                                   U S E;
 USER:                                  U S E R;
 VALUES:                                V A L U E S;
+VALUE:                                 V A L U E;
 VARYING:                               V A R Y I N G;
 VIEW:                                  V I E W;
 WAITFOR:                               W A I T F O R;
@@ -1703,7 +1716,6 @@ MULTI_USER:                            M U L T I '_' U S E R;
 NAME:                                  N A M E;
 NESTED_TRIGGERS:                       N E S T E D '_' T R I G G E R S;
 NEW_BROKER:                            N E W '_' B R O K E R;  
-NEXT:                                  N E X T;
 NOCOUNT:                               N O C O U N T;
 NOEXPAND:                              N O E X P A N D;
 NON_TRANSACTED_ACCESS:                 N O N '_' T R A N S A C T E D '_' A C C E S S;
