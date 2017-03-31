@@ -208,8 +208,8 @@ class DeclareStmt(AstNode):
     #      this configuration is to allow AST node selection in the meantime
     _fields = ['placeholder_do_not_use']
 
-class IfStmt(AstNode):
-    _fields = ['search_condition', 'if_expr', 'else_expr']
+class SetStmt(AstNode):
+    _fields = ['placeholder_do_not_use']
 
 class Union(AstNode):
     _fields = ['left', 'op', 'right']        
@@ -282,6 +282,9 @@ class Case(AstNode):
 
 class CaseWhen(AstNode):
     _fields = ['whenExpr->when', 'thenExpr->then']
+
+class IfElse(AstNode):
+    _fields = ['search_condition', 'if_expr', 'else_expr']
 
 class OverClause(AstNode):
     _fields = ['expression_list->partition', 'order_by_clause', 'row_or_range_clause']
@@ -503,10 +506,13 @@ class AstVisitor(tsqlVisitor):
         return CaseWhen._from_fields(self, ctx)
 
     def visitIf_statement(self, ctx):
-        return IfStmt._from_fields(self, ctx)
+        return IfElse._from_fields(self, ctx)
 
     def visitDeclare_statement(self, ctx):
-        return DeclareStmt._from_fields(ctx, placeholder_do_not_use=self.visitChildren(ctx))
+        return DeclareStmt(ctx, placeholder_do_not_use=self.visitChildren(ctx))
+
+    def visitSet_statement(self, ctx):
+        return SetStmt(ctx, placeholder_do_not_use=self.visitChildren(ctx))
 
     # Function calls ---------------
 
