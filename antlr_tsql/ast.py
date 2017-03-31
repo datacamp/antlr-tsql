@@ -210,7 +210,7 @@ class Union(AstNode):
 
 class Identifier(AstNode):
     # should have server, database, schema, table, name
-    _fields = ['server', 'database', 'schema', 'table', 'name']
+    _fields = ['server', 'database', 'schema', 'table', 'name', 'procedure->name']
 
 class AliasExpr(AstNode):
     _fields = ['expression->expr', 'alias']
@@ -285,7 +285,7 @@ class Sublink(AstNode):
 from collections.abc import Sequence
 class Call(AstNode):
     _fields = ['name', 'all_distinct->pref',
-               'expression_list->args', 'expression->args', 
+               'expression_list->args', 'expression->args',
                'over_clause']
 
     @classmethod
@@ -400,6 +400,9 @@ class AstVisitor(tsqlVisitor):
             return ident
 
         return Identifier._from_fields(self, ctx)
+    
+    def visitFunc_proc_name(self, ctx):
+        return Identifier._from_fields(self, ctx)
 
     def visitFull_table_name(self, ctx):
         return Identifier._from_fields(self, ctx)
@@ -511,6 +514,9 @@ class AstVisitor(tsqlVisitor):
         return Call._from_aggregate(self, ctx)
 
     def visitRanking_windowed_function(self, ctx):
+        return Call._from_aggregate(self, ctx)
+
+    def visitNext_value_for_function(self, ctx):
         return Call._from_aggregate(self, ctx)
 
     def visitCast_call(self, ctx):
