@@ -92,7 +92,7 @@ cfl_statement
     | GOTO r_id ';'?                                   #goto_statement
     | r_id ':' ';'?                                    #goto_statement
     // https://msdn.microsoft.com/en-us/library/ms182717.aspx
-    | IF search_condition sql_clause (ELSE sql_clause)? ';'?  #if_statement
+    | IF search_condition if_expr=sql_clause (ELSE else_expr=sql_clause)? ';'?  #if_statement
     // https://msdn.microsoft.com/en-us/library/ms174998.aspx
     | RETURN expression? ';'?                        #return_statement
     // https://msdn.microsoft.com/en-us/library/ee677615.aspx
