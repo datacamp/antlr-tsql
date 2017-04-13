@@ -14,7 +14,7 @@ setup(
 	name = 'antlr-tsql',
 	version = version,
 	packages = ['antlr_tsql'],
-	install_requires = ['antlr4-python3-runtime', 'pyyaml'],
+	install_requires = ['antlr-ast', 'antlr4-python3-runtime', 'pyyaml'],
         description = 'A transact sql parser, written in Antlr4',
         author = 'Michael Chow',
         author_email = 'michael@datacamp.com',
