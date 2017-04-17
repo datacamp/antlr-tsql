@@ -30,6 +30,7 @@ def parse_from_yaml(fname):
     return out
 
 from antlr_ast import AstNode
+import antlr_ast
 
 class Unshaped(AstNode):
     _fields = ['arr']
@@ -58,7 +59,8 @@ class SelectStmt(AstNode):
                'group_by_item->group_by_clause', 
                'having']
 
-    _rules = ['query_specification']
+    _rules = ['query_specification',
+              ('select_statement', '_from_select_rule')]
 
     @classmethod
     def _from_select_rule(cls, visitor, ctx):
@@ -134,6 +136,7 @@ class Identifier(AstNode):
 
 class AliasExpr(AstNode):
     _fields = ['expression->expr', 'alias']
+    _rules = [('table_source_item_name', '_from_source_table_item')]
 
     @classmethod
     def _from_source_table_item(cls, visitor, ctx):
@@ -154,10 +157,13 @@ class BinaryExpr(AstNode):
     _fields = ['left', 'op', 'comparison_operator->op', 'right']
 
     _rules = ['binary_operator_expression', 'binary_operator_expression2',
-              'search_cond_and', 'search_cond_or']
+              'search_cond_and', 'search_cond_or',
+              ('binary_mod_expression', '_from_mod'),
+              ('binary_in_expression', '_from_mod')]
 
     @classmethod
-    def _from_mod(cls, visitor, ctx, fields):
+    def _from_mod(cls, visitor, ctx):
+        fields = ['left', 'op', 'right', 'subquery->right', 'expression_list->right']
         bin_expr = BinaryExpr._from_fields(visitor, ctx, fields)
         ctx_not = ctx.NOT()
         if ctx_not:
@@ -184,7 +190,7 @@ class SortBy(AstNode):
 class JoinExpr(AstNode):
     _fields = ['left', 'op->join_type', 'join_type', 'right'
                'table_source->source', 'search_condition->cond']
-    _rules = ['standard_join', 'cross_join']
+    _rules = ['standard_join', 'cross_join', ('apply_join', '_from_apply')]
 
     @classmethod
     def _from_apply(cls, visitor, ctx):
@@ -222,6 +228,13 @@ class Call(AstNode):
     _fields = ['name', 'all_distinct->pref',
                'expression_list->args', 'expression->args',
                'over_clause']
+
+    _rules = [('standard_call',               '_from_standard'),
+              ('simple_call',                 '_from_simple'),
+              ('aggregate_windowed_function', '_from_aggregate'),
+              ('ranking_windowed_function',   '_from_aggregate'),
+              ('next_value_for_function',     '_from_aggregate'),
+              ('cast_call',                   '_from_cast')]
 
     @classmethod
     def _from_standard(cls, visitor, ctx):
@@ -266,6 +279,7 @@ class Call(AstNode):
 
 # PARSE TREE VISITOR ----------------------------------------------------------
 import inspect
+from functools import partial
 class AstVisitor(tsqlVisitor):
     def visitChildren(self, node, predicate=None):
         result = self.defaultResult()
@@ -301,9 +315,6 @@ class AstVisitor(tsqlVisitor):
     def visitTerminal(self, ctx):
         return ctx.getText()
 
-    def visitSelect_statement(self, ctx):
-        return SelectStmt._from_select_rule(self, ctx)
-
     def visitFull_column_name(self, ctx):
         if ctx.table:
             ident = Identifier._from_fields(self, ctx.table)
@@ -312,13 +323,6 @@ class AstVisitor(tsqlVisitor):
 
         return Identifier._from_fields(self, ctx)
     
-    def visitBinary_mod_expression(self, ctx):
-        return BinaryExpr._from_mod(self, ctx, BinaryExpr._fields)
-
-    def visitBinary_in_expression(self, ctx):
-        fields = ['left', 'op', 'subquery->right', 'expression_list->right']
-        return BinaryExpr._from_mod(self, ctx, fields)
-
     def visitSelect_list_elem(self, ctx):
         if ctx.alias:
             return AliasExpr._from_fields(self, ctx)
@@ -330,14 +334,8 @@ class AstVisitor(tsqlVisitor):
         else:
             return self.visitChildren(ctx)
 
-    def visitTable_source_item_name(self, ctx):
-        return AliasExpr._from_source_table_item(self, ctx)
-
     def visitFetch_expression(self, ctx):
         return self.visit(ctx.expression())
-
-    def visitApply_join(self, ctx):
-        return JoinExpr._from_apply(self, ctx)
 
     def visitConstant(self, ctx):
         res = self.visitChildren(ctx)
@@ -351,61 +349,16 @@ class AstVisitor(tsqlVisitor):
 
     # Function calls ---------------
 
-    def visitSimple_call(self, ctx):
-        return Call._from_simple(self, ctx)
-
-    def visitStandard_call(self, ctx):
-        return Call._from_standard(self, ctx)
-
     def visitExpression_list(self, ctx):
         args = [c.accept(self) for c in ctx.children if not isinstance(c, Tree.TerminalNode)]
         return args
 
-    def visitAggregate_windowed_function(self, ctx):
-        return Call._from_aggregate(self, ctx)
-
-    def visitRanking_windowed_function(self, ctx):
-        return Call._from_aggregate(self, ctx)
-
-    def visitNext_value_for_function(self, ctx):
-        return Call._from_aggregate(self, ctx)
-
-    def visitCast_call(self, ctx):
-        return Call._from_cast(self, ctx)
-
     # simple dropping of tokens -----------------------------------------------
-    # Note can't filter out TerminalNodeImpl from some currently as in something like
-    # "SELECT a FROM b WHERE 1", the 1 will be a terminal node in where_clause
 
-    def visitSql_clauses(self, ctx):
-        return self.visitChildren(ctx, predicate = lambda n: not isinstance(n, Tree.TerminalNode) )
-
-    def visitSelect_list(self, ctx):
-        return self.visitChildren(ctx, predicate = lambda n: not isinstance(n, Tree.TerminalNode) )
-
-    def visitBracket_expression(self, ctx): 
-        return self.visitChildren(ctx, predicate = lambda n: not isinstance(n, Tree.TerminalNode) )
-
-    def visitSubquery_expression(self, ctx): 
-        return self.visitChildren(ctx, predicate = lambda n: not isinstance(n, Tree.TerminalNode) )
-
-    def visitBracket_search_expression(self, ctx): 
-        return self.visitChildren(ctx, predicate = lambda n: not isinstance(n, Tree.TerminalNode) )
-
-    def visitBracket_query_expression(self, ctx):
-        return self.visitChildren(ctx, predicate = lambda n: not isinstance(n, Tree.TerminalNode) )
-
-    def visitBracket_table_source(self, ctx):
-        return self.visitChildren(ctx, predicate = lambda n: not isinstance(n, Tree.TerminalNode) )
-
-    def visitTable_alias(self, ctx):
-        return self.visitChildren(ctx, predicate = lambda n: not isinstance(n, Tree.TerminalNode) )
-
-    def visitTable_value_constructor(self, ctx):
-        return self.visitChildren(ctx, predicate = lambda n: not isinstance(n, Tree.TerminalNode) )
-
-    def visitWhere_clause_dml(self, ctx):
-        return self.visitChildren(ctx, predicate = lambda n: not isinstance(n, Tree.TerminalNode) )
+    _remove_terminal = [
+            'sql_clauses', 'select_list', 'bracket_expression', 'subquery_expression',
+            'bracket_search_expression', 'bracket_query_expression', 'bracket_table_source',
+            'table_alias', 'table_value_constructor', 'where_clause_dml']
 
     def visitColumn_name_list(self, ctx):
         return [Identifier(c, name=c.accept(self)) for c in ctx.children if not isinstance(c, Tree.TerminalNode)]
@@ -413,6 +366,12 @@ class AstVisitor(tsqlVisitor):
 for item in list(globals().values()):
     if inspect.isclass(item) and issubclass(item, AstNode):
         item._bind_to_visitor(AstVisitor)
+
+for rule in AstVisitor._remove_terminal: 
+    #f = partial(AstVisitor.visitChildren, predicate = lambda n: not isinstance(n, Tree.TerminalNode))
+    def visitor(self, ctx):
+        return self.visitChildren(ctx, predicate = lambda n: not isinstance(n, Tree.TerminalNode))
+    setattr(AstVisitor, 'visit' + rule.capitalize(), visitor)
 
 
 # Error Listener ------------------------------------------------------------------
