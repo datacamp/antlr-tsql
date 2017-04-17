@@ -132,11 +132,34 @@ class Union(AstNode):
 class Identifier(AstNode):
     # should have server, database, schema, table, name
     _fields = ['server', 'database', 'schema', 'table', 'name', 'procedure->name']
-    _rules = ['full_table_name', 'table_name', 'func_proc_name']
+    _rules = ['full_table_name', 'table_name', 'func_proc_name',
+              ('full_column_name', '_from_full_column_name')]
+
+    @classmethod
+    def _from_full_column_name(cls, visitor, ctx):
+        if ctx.table:
+            ident = cls._from_fields(visitor, ctx.table)
+            ident.name = visitor.visit(ctx.name)
+            return ident
+
+        return cls._from_fields(visitor, ctx)
 
 class AliasExpr(AstNode):
     _fields = ['expression->expr', 'alias']
-    _rules = [('table_source_item_name', '_from_source_table_item')]
+    _rules = [('table_source_item_name', '_from_source_table_item'),
+              ('select_list_elem', '_from_select_list_elem')]
+
+    @classmethod
+    def _from_select_list_elem(cls, visitor, ctx):
+        if ctx.alias:
+            return cls._from_fields(visitor, ctx)
+        elif ctx.a_star():
+            tab = ctx.table_name()
+            ident = visitor.visit(tab) if tab else Identifier(ctx)
+            ident.name = visitor.visit(ctx.a_star())
+            return ident
+        else:
+            return visitor.visitChildren(ctx)
 
     @classmethod
     def _from_source_table_item(cls, visitor, ctx):
@@ -314,25 +337,6 @@ class AstVisitor(tsqlVisitor):
 
     def visitTerminal(self, ctx):
         return ctx.getText()
-
-    def visitFull_column_name(self, ctx):
-        if ctx.table:
-            ident = Identifier._from_fields(self, ctx.table)
-            ident.name = self.visit(ctx.name)
-            return ident
-
-        return Identifier._from_fields(self, ctx)
-    
-    def visitSelect_list_elem(self, ctx):
-        if ctx.alias:
-            return AliasExpr._from_fields(self, ctx)
-        elif ctx.a_star():
-            tab = ctx.table_name()
-            ident = self.visit(tab) if tab else Identifier(ctx)
-            ident.name = self.visit(ctx.a_star())
-            return ident
-        else:
-            return self.visitChildren(ctx)
 
     def visitFetch_expression(self, ctx):
         return self.visit(ctx.expression())
