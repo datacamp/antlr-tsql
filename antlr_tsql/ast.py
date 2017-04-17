@@ -41,10 +41,12 @@ class Unshaped(AstNode):
 class Script(AstNode):
     _fields = ['batch']
     _priority = 0
+    _rules = ['tsql_file']
 
 class Batch(AstNode):
     _fields = ['sql_clauses->statements']
     _priority = 0
+    _rules = ['batch']
 
 class SelectStmt(AstNode):
     _fields = ['pref',
@@ -55,6 +57,8 @@ class SelectStmt(AstNode):
                'where->where_clause',
                'group_by_item->group_by_clause', 
                'having']
+
+    _rules = ['query_specification']
 
     @classmethod
     def _from_select_rule(cls, visitor, ctx):
@@ -83,8 +87,11 @@ class InsertStmt(AstNode):
                'column_name_list->column_names', 'output_clause', 'insert_statement_value->values_clause',
                'for_clause', 'option_clause']
 
+    _rules = ['insert_statement']
+
 class ValueList(AstNode):
     _fields = ['expression_list->values']
+    _rules = ['value_list']
 
 class DeleteStmt(AstNode):
     _fields = ['with_expression->with_expr', 'top_clause_dm->top_clause',
@@ -95,6 +102,8 @@ class DeleteStmt(AstNode):
                'table_sources->from_source', 'where_clause_dml->where_clause',
                'for_clause', 'option_clause']
 
+    _rules = ['delete_statement']
+
 class UpdateStmt(AstNode):
     _fields = ['with_expression->with_expr', 'top_clause_dm->top_clause',
                'ddl_object->target', 'rowset_function_limited->target',    # TODO make these own rule in grammar?
@@ -103,6 +112,8 @@ class UpdateStmt(AstNode):
                'output_clause', 
                'table_sources->from_source', 'where_clause_dml->where_clause',
                'for_clause', 'option_clause']
+
+    _rules = ['update_statement']
 
 class DeclareStmt(AstNode):
     # TODO sort out all forms of declare statements
@@ -114,11 +125,12 @@ class SetStmt(AstNode):
 
 class Union(AstNode):
     _fields = ['left', 'op', 'right']        
-
+    _rules = ['union_query_expression']
 
 class Identifier(AstNode):
     # should have server, database, schema, table, name
     _fields = ['server', 'database', 'schema', 'table', 'name', 'procedure->name']
+    _rules = ['full_table_name', 'table_name', 'func_proc_name']
 
 class AliasExpr(AstNode):
     _fields = ['expression->expr', 'alias']
@@ -140,7 +152,9 @@ class Star(AstNode):
 
 class BinaryExpr(AstNode):
     _fields = ['left', 'op', 'comparison_operator->op', 'right']
-    
+
+    _rules = ['binary_operator_expression', 'binary_operator_expression2',
+              'search_cond_and', 'search_cond_or']
 
     @classmethod
     def _from_mod(cls, visitor, ctx, fields):
@@ -153,19 +167,24 @@ class BinaryExpr(AstNode):
 
 class UnaryExpr(AstNode):
     _fields = ['op', 'expression->expr']
+    _rules = ['unary_operator_expression%s'%ii for ii in ('',2,3)]
 
 class TopExpr(AstNode):
     _fields = ['expression->expr', 'PERCENT->percent', 'WITH->with_ties']
+    _rules = ['top_clause', 'top_clause_dm']
 
 class OrderByExpr(AstNode):
     _fields = ['order_by_expression->expr', 'offset', 'fetch_expression->fetch']
+    _rules = ['order_by_clause']
 
 class SortBy(AstNode):
     _fields = ['expression->expr', 'direction']
+    _rules = ['order_by_expression']
 
 class JoinExpr(AstNode):
     _fields = ['left', 'op->join_type', 'join_type', 'right'
                'table_source->source', 'search_condition->cond']
+    _rules = ['standard_join', 'cross_join']
 
     @classmethod
     def _from_apply(cls, visitor, ctx):
@@ -180,18 +199,23 @@ class JoinExpr(AstNode):
 
 class Case(AstNode):
     _fields = ['caseExpr->input', 'switch_search_condition_section->switches', 'switch_section->switches', 'elseExpr->else_expr']
+    _rules = ['case_expression']
 
 class CaseWhen(AstNode):
     _fields = ['whenExpr->when', 'thenExpr->then']
+    _rules = ['switch_search_condition_section']
 
 class IfElse(AstNode):
     _fields = ['search_condition', 'if_expr', 'else_expr']
+    _rules = ['if_statement']
 
 class OverClause(AstNode):
     _fields = ['expression_list->partition', 'order_by_clause', 'row_or_range_clause']
+    _rules = ['over_clause']
 
 class Sublink(AstNode):
     _fields = ['test_expr', 'op', 'pref', 'subquery->select']
+    _rules = ['sublink_expression']
 
 from collections.abc import Sequence
 class Call(AstNode):
@@ -240,11 +264,8 @@ class Call(AstNode):
         return cls(ctx, name = cls.get_name(ctx), args = args)
 
 
-
-
-
 # PARSE TREE VISITOR ----------------------------------------------------------
-
+import inspect
 class AstVisitor(tsqlVisitor):
     def visitChildren(self, node, predicate=None):
         result = self.defaultResult()
@@ -280,29 +301,8 @@ class AstVisitor(tsqlVisitor):
     def visitTerminal(self, ctx):
         return ctx.getText()
 
-    def visitTsql_file(self, ctx):
-        return Script._from_fields(self, ctx)
-
-    def visitBatch(self, ctx):
-        return Batch._from_fields(self, ctx)
-
     def visitSelect_statement(self, ctx):
         return SelectStmt._from_select_rule(self, ctx)
-
-    def visitQuery_specification(self, ctx):
-        return SelectStmt._from_fields(self, ctx)
-
-    def visitInsert_statement(self, ctx):
-        return InsertStmt._from_fields(self, ctx)
-
-    def visitDelete_statement(self, ctx):
-        return DeleteStmt._from_fields(self, ctx)
-
-    def visitUpdate_statement(self, ctx):
-        return UpdateStmt._from_fields(self, ctx)
-
-    def visitUnion_query_expression(self, ctx):
-        return Union._from_fields(self, ctx)
 
     def visitFull_column_name(self, ctx):
         if ctx.table:
@@ -312,45 +312,12 @@ class AstVisitor(tsqlVisitor):
 
         return Identifier._from_fields(self, ctx)
     
-    def visitFunc_proc_name(self, ctx):
-        return Identifier._from_fields(self, ctx)
-
-    def visitFull_table_name(self, ctx):
-        return Identifier._from_fields(self, ctx)
-
-    def visitTable_name(self, ctx):
-        return Identifier._from_fields(self, ctx)
-
-    def visitBinary_operator_expression(self, ctx):
-        return BinaryExpr._from_fields(self, ctx)
-
-    def visitBinary_operator_expression2(self, ctx):
-        return BinaryExpr._from_fields(self, ctx)
-
-    def visitSearch_cond_and(self, ctx):
-        return BinaryExpr._from_fields(self, ctx)
-
-    def visitSearch_cond_or(self, ctx):
-        return BinaryExpr._from_fields(self, ctx)
-
     def visitBinary_mod_expression(self, ctx):
         return BinaryExpr._from_mod(self, ctx, BinaryExpr._fields)
 
     def visitBinary_in_expression(self, ctx):
         fields = ['left', 'op', 'subquery->right', 'expression_list->right']
         return BinaryExpr._from_mod(self, ctx, fields)
-
-    def visitUnary_operator_expression(self, ctx):
-        return UnaryExpr._from_fields(self, ctx)
-    
-    def visitUnary_operator_expression2(self, ctx):
-        return UnaryExpr._from_fields(self, ctx)
-
-    def visitUnary_operator_expression3(self, ctx):
-        return UnaryExpr._from_fields(self, ctx)
-
-    def visitSublink_expression(self, ctx):
-        return Sublink._from_fields(self, ctx)
 
     def visitSelect_list_elem(self, ctx):
         if ctx.alias:
@@ -366,48 +333,15 @@ class AstVisitor(tsqlVisitor):
     def visitTable_source_item_name(self, ctx):
         return AliasExpr._from_source_table_item(self, ctx)
 
-    def visitTop_clause(self, ctx):
-        return TopExpr._from_fields(self, ctx)
-
-    def visitTop_clause_dm(self, ctx):
-        return TopExpr._from_fields(self, ctx)
-
-    def visitOrder_by_clause(self, ctx):
-        return OrderByExpr._from_fields(self, ctx)
-
-    def visitOrder_by_expression(self, ctx):
-        return SortBy._from_fields(self, ctx)
-
     def visitFetch_expression(self, ctx):
         return self.visit(ctx.expression())
-
-    def visitStandard_join(self, ctx):
-        return JoinExpr._from_fields(self, ctx)
-
-    def visitCross_join(self, ctx):
-        return JoinExpr._from_fields(self, ctx)
 
     def visitApply_join(self, ctx):
         return JoinExpr._from_apply(self, ctx)
 
-    def visitOver_clause(self, ctx):
-        return OverClause._from_fields(self, ctx)
-
     def visitConstant(self, ctx):
         res = self.visitChildren(ctx)
         return res if not res.startswith('+') else res[1:]
-
-    def visitCase_expression(self, ctx):
-        return Case._from_fields(self, ctx)
-
-    def visitSwitch_search_condition_section(self, ctx):
-        return CaseWhen._from_fields(self, ctx)
-
-    def visitSwitch_search_condition_section(self, ctx):
-        return CaseWhen._from_fields(self, ctx)
-
-    def visitIf_statement(self, ctx):
-        return IfElse._from_fields(self, ctx)
 
     def visitDeclare_statement(self, ctx):
         return DeclareStmt(ctx, placeholder_do_not_use=self.visitChildren(ctx))
@@ -426,9 +360,6 @@ class AstVisitor(tsqlVisitor):
     def visitExpression_list(self, ctx):
         args = [c.accept(self) for c in ctx.children if not isinstance(c, Tree.TerminalNode)]
         return args
-
-    def visitValue_list(self, ctx):
-        return ValueList._from_fields(self, ctx)
 
     def visitAggregate_windowed_function(self, ctx):
         return Call._from_aggregate(self, ctx)
@@ -479,8 +410,12 @@ class AstVisitor(tsqlVisitor):
     def visitColumn_name_list(self, ctx):
         return [Identifier(c, name=c.accept(self)) for c in ctx.children if not isinstance(c, Tree.TerminalNode)]
 
+for item in list(globals().values()):
+    if inspect.isclass(item) and issubclass(item, AstNode):
+        item._bind_to_visitor(AstVisitor)
 
 
+# Error Listener ------------------------------------------------------------------
 
 from antlr4.error.ErrorListener import ErrorListener
 from antlr4.error.Errors import RecognitionException
