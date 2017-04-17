@@ -351,11 +351,13 @@ class AstVisitor(tsqlVisitor):
     def visitSet_statement(self, ctx):
         return SetStmt(ctx, placeholder_do_not_use=self.visitChildren(ctx))
 
-    # Function calls ---------------
-
     def visitExpression_list(self, ctx):
+        # return list of args, ignoring ',' for constructing function calls
         args = [c.accept(self) for c in ctx.children if not isinstance(c, Tree.TerminalNode)]
         return args
+
+    def visitColumn_name_list(self, ctx):
+        return [Identifier(c, name=c.accept(self)) for c in ctx.children if not isinstance(c, Tree.TerminalNode)]
 
     # simple dropping of tokens -----------------------------------------------
 
@@ -363,9 +365,6 @@ class AstVisitor(tsqlVisitor):
             'sql_clauses', 'select_list', 'bracket_expression', 'subquery_expression',
             'bracket_search_expression', 'bracket_query_expression', 'bracket_table_source',
             'table_alias', 'table_value_constructor', 'where_clause_dml']
-
-    def visitColumn_name_list(self, ctx):
-        return [Identifier(c, name=c.accept(self)) for c in ctx.children if not isinstance(c, Tree.TerminalNode)]
 
 for item in list(globals().values()):
     if inspect.isclass(item) and issubclass(item, AstNode):
