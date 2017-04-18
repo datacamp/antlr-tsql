@@ -30,6 +30,7 @@ def parse_from_yaml(fname):
     return out
 
 from antlr_ast import AstNode
+import antlr_ast
 
 class Unshaped(AstNode):
     _fields = ['arr']
@@ -41,10 +42,12 @@ class Unshaped(AstNode):
 class Script(AstNode):
     _fields = ['batch']
     _priority = 0
+    _rules = ['tsql_file']
 
 class Batch(AstNode):
     _fields = ['sql_clauses->statements']
     _priority = 0
+    _rules = ['batch']
 
 class SelectStmt(AstNode):
     _fields = ['pref',
@@ -55,6 +58,9 @@ class SelectStmt(AstNode):
                'where->where_clause',
                'group_by_item->group_by_clause', 
                'having']
+
+    _rules = ['query_specification',
+              ('select_statement', '_from_select_rule')]
 
     @classmethod
     def _from_select_rule(cls, visitor, ctx):
@@ -83,8 +89,11 @@ class InsertStmt(AstNode):
                'column_name_list->column_names', 'output_clause', 'insert_statement_value->values_clause',
                'for_clause', 'option_clause']
 
+    _rules = ['insert_statement']
+
 class ValueList(AstNode):
     _fields = ['expression_list->values']
+    _rules = ['value_list']
 
 class DeleteStmt(AstNode):
     _fields = ['with_expression->with_expr', 'top_clause_dm->top_clause',
@@ -95,6 +104,8 @@ class DeleteStmt(AstNode):
                'table_sources->from_source', 'where_clause_dml->where_clause',
                'for_clause', 'option_clause']
 
+    _rules = ['delete_statement']
+
 class UpdateStmt(AstNode):
     _fields = ['with_expression->with_expr', 'top_clause_dm->top_clause',
                'ddl_object->target', 'rowset_function_limited->target',    # TODO make these own rule in grammar?
@@ -103,6 +114,8 @@ class UpdateStmt(AstNode):
                'output_clause', 
                'table_sources->from_source', 'where_clause_dml->where_clause',
                'for_clause', 'option_clause']
+
+    _rules = ['update_statement']
 
 class DeclareStmt(AstNode):
     # TODO sort out all forms of declare statements
@@ -114,14 +127,39 @@ class SetStmt(AstNode):
 
 class Union(AstNode):
     _fields = ['left', 'op', 'right']        
-
+    _rules = ['union_query_expression']
 
 class Identifier(AstNode):
     # should have server, database, schema, table, name
     _fields = ['server', 'database', 'schema', 'table', 'name', 'procedure->name']
+    _rules = ['full_table_name', 'table_name', 'func_proc_name',
+              ('full_column_name', '_from_full_column_name')]
+
+    @classmethod
+    def _from_full_column_name(cls, visitor, ctx):
+        if ctx.table:
+            ident = cls._from_fields(visitor, ctx.table)
+            ident.name = visitor.visit(ctx.name)
+            return ident
+
+        return cls._from_fields(visitor, ctx)
 
 class AliasExpr(AstNode):
     _fields = ['expression->expr', 'alias']
+    _rules = [('table_source_item_name', '_from_source_table_item'),
+              ('select_list_elem', '_from_select_list_elem')]
+
+    @classmethod
+    def _from_select_list_elem(cls, visitor, ctx):
+        if ctx.alias:
+            return cls._from_fields(visitor, ctx)
+        elif ctx.a_star():
+            tab = ctx.table_name()
+            ident = visitor.visit(tab) if tab else Identifier(ctx)
+            ident.name = visitor.visit(ctx.a_star())
+            return ident
+        else:
+            return visitor.visitChildren(ctx)
 
     @classmethod
     def _from_source_table_item(cls, visitor, ctx):
@@ -140,10 +178,15 @@ class Star(AstNode):
 
 class BinaryExpr(AstNode):
     _fields = ['left', 'op', 'comparison_operator->op', 'right']
-    
+
+    _rules = ['binary_operator_expression', 'binary_operator_expression2',
+              'search_cond_and', 'search_cond_or',
+              ('binary_mod_expression', '_from_mod'),
+              ('binary_in_expression', '_from_mod')]
 
     @classmethod
-    def _from_mod(cls, visitor, ctx, fields):
+    def _from_mod(cls, visitor, ctx):
+        fields = ['left', 'op', 'right', 'subquery->right', 'expression_list->right']
         bin_expr = BinaryExpr._from_fields(visitor, ctx, fields)
         ctx_not = ctx.NOT()
         if ctx_not:
@@ -153,19 +196,24 @@ class BinaryExpr(AstNode):
 
 class UnaryExpr(AstNode):
     _fields = ['op', 'expression->expr']
+    _rules = ['unary_operator_expression%s'%ii for ii in ('',2,3)]
 
 class TopExpr(AstNode):
     _fields = ['expression->expr', 'PERCENT->percent', 'WITH->with_ties']
+    _rules = ['top_clause', 'top_clause_dm']
 
 class OrderByExpr(AstNode):
     _fields = ['order_by_expression->expr', 'offset', 'fetch_expression->fetch']
+    _rules = ['order_by_clause']
 
 class SortBy(AstNode):
     _fields = ['expression->expr', 'direction']
+    _rules = ['order_by_expression']
 
 class JoinExpr(AstNode):
     _fields = ['left', 'op->join_type', 'join_type', 'right'
                'table_source->source', 'search_condition->cond']
+    _rules = ['standard_join', 'cross_join', ('apply_join', '_from_apply')]
 
     @classmethod
     def _from_apply(cls, visitor, ctx):
@@ -180,24 +228,36 @@ class JoinExpr(AstNode):
 
 class Case(AstNode):
     _fields = ['caseExpr->input', 'switch_search_condition_section->switches', 'switch_section->switches', 'elseExpr->else_expr']
+    _rules = ['case_expression']
 
 class CaseWhen(AstNode):
     _fields = ['whenExpr->when', 'thenExpr->then']
+    _rules = ['switch_search_condition_section']
 
 class IfElse(AstNode):
     _fields = ['search_condition', 'if_expr', 'else_expr']
+    _rules = ['if_statement']
 
 class OverClause(AstNode):
     _fields = ['expression_list->partition', 'order_by_clause', 'row_or_range_clause']
+    _rules = ['over_clause']
 
 class Sublink(AstNode):
     _fields = ['test_expr', 'op', 'pref', 'subquery->select']
+    _rules = ['sublink_expression']
 
 from collections.abc import Sequence
 class Call(AstNode):
     _fields = ['name', 'all_distinct->pref',
                'expression_list->args', 'expression->args',
                'over_clause']
+
+    _rules = [('standard_call',               '_from_standard'),
+              ('simple_call',                 '_from_simple'),
+              ('aggregate_windowed_function', '_from_aggregate'),
+              ('ranking_windowed_function',   '_from_aggregate'),
+              ('next_value_for_function',     '_from_aggregate'),
+              ('cast_call',                   '_from_cast')]
 
     @classmethod
     def _from_standard(cls, visitor, ctx):
@@ -240,11 +300,9 @@ class Call(AstNode):
         return cls(ctx, name = cls.get_name(ctx), args = args)
 
 
-
-
-
 # PARSE TREE VISITOR ----------------------------------------------------------
-
+import inspect
+from functools import partial
 class AstVisitor(tsqlVisitor):
     def visitChildren(self, node, predicate=None):
         result = self.defaultResult()
@@ -280,134 +338,12 @@ class AstVisitor(tsqlVisitor):
     def visitTerminal(self, ctx):
         return ctx.getText()
 
-    def visitTsql_file(self, ctx):
-        return Script._from_fields(self, ctx)
-
-    def visitBatch(self, ctx):
-        return Batch._from_fields(self, ctx)
-
-    def visitSelect_statement(self, ctx):
-        return SelectStmt._from_select_rule(self, ctx)
-
-    def visitQuery_specification(self, ctx):
-        return SelectStmt._from_fields(self, ctx)
-
-    def visitInsert_statement(self, ctx):
-        return InsertStmt._from_fields(self, ctx)
-
-    def visitDelete_statement(self, ctx):
-        return DeleteStmt._from_fields(self, ctx)
-
-    def visitUpdate_statement(self, ctx):
-        return UpdateStmt._from_fields(self, ctx)
-
-    def visitUnion_query_expression(self, ctx):
-        return Union._from_fields(self, ctx)
-
-    def visitFull_column_name(self, ctx):
-        if ctx.table:
-            ident = Identifier._from_fields(self, ctx.table)
-            ident.name = self.visit(ctx.name)
-            return ident
-
-        return Identifier._from_fields(self, ctx)
-    
-    def visitFunc_proc_name(self, ctx):
-        return Identifier._from_fields(self, ctx)
-
-    def visitFull_table_name(self, ctx):
-        return Identifier._from_fields(self, ctx)
-
-    def visitTable_name(self, ctx):
-        return Identifier._from_fields(self, ctx)
-
-    def visitBinary_operator_expression(self, ctx):
-        return BinaryExpr._from_fields(self, ctx)
-
-    def visitBinary_operator_expression2(self, ctx):
-        return BinaryExpr._from_fields(self, ctx)
-
-    def visitSearch_cond_and(self, ctx):
-        return BinaryExpr._from_fields(self, ctx)
-
-    def visitSearch_cond_or(self, ctx):
-        return BinaryExpr._from_fields(self, ctx)
-
-    def visitBinary_mod_expression(self, ctx):
-        return BinaryExpr._from_mod(self, ctx, BinaryExpr._fields)
-
-    def visitBinary_in_expression(self, ctx):
-        fields = ['left', 'op', 'subquery->right', 'expression_list->right']
-        return BinaryExpr._from_mod(self, ctx, fields)
-
-    def visitUnary_operator_expression(self, ctx):
-        return UnaryExpr._from_fields(self, ctx)
-    
-    def visitUnary_operator_expression2(self, ctx):
-        return UnaryExpr._from_fields(self, ctx)
-
-    def visitUnary_operator_expression3(self, ctx):
-        return UnaryExpr._from_fields(self, ctx)
-
-    def visitSublink_expression(self, ctx):
-        return Sublink._from_fields(self, ctx)
-
-    def visitSelect_list_elem(self, ctx):
-        if ctx.alias:
-            return AliasExpr._from_fields(self, ctx)
-        elif ctx.a_star():
-            tab = ctx.table_name()
-            ident = self.visit(tab) if tab else Identifier(ctx)
-            ident.name = self.visit(ctx.a_star())
-            return ident
-        else:
-            return self.visitChildren(ctx)
-
-    def visitTable_source_item_name(self, ctx):
-        return AliasExpr._from_source_table_item(self, ctx)
-
-    def visitTop_clause(self, ctx):
-        return TopExpr._from_fields(self, ctx)
-
-    def visitTop_clause_dm(self, ctx):
-        return TopExpr._from_fields(self, ctx)
-
-    def visitOrder_by_clause(self, ctx):
-        return OrderByExpr._from_fields(self, ctx)
-
-    def visitOrder_by_expression(self, ctx):
-        return SortBy._from_fields(self, ctx)
-
     def visitFetch_expression(self, ctx):
         return self.visit(ctx.expression())
-
-    def visitStandard_join(self, ctx):
-        return JoinExpr._from_fields(self, ctx)
-
-    def visitCross_join(self, ctx):
-        return JoinExpr._from_fields(self, ctx)
-
-    def visitApply_join(self, ctx):
-        return JoinExpr._from_apply(self, ctx)
-
-    def visitOver_clause(self, ctx):
-        return OverClause._from_fields(self, ctx)
 
     def visitConstant(self, ctx):
         res = self.visitChildren(ctx)
         return res if not res.startswith('+') else res[1:]
-
-    def visitCase_expression(self, ctx):
-        return Case._from_fields(self, ctx)
-
-    def visitSwitch_search_condition_section(self, ctx):
-        return CaseWhen._from_fields(self, ctx)
-
-    def visitSwitch_search_condition_section(self, ctx):
-        return CaseWhen._from_fields(self, ctx)
-
-    def visitIf_statement(self, ctx):
-        return IfElse._from_fields(self, ctx)
 
     def visitDeclare_statement(self, ctx):
         return DeclareStmt(ctx, placeholder_do_not_use=self.visitChildren(ctx))
@@ -415,72 +351,33 @@ class AstVisitor(tsqlVisitor):
     def visitSet_statement(self, ctx):
         return SetStmt(ctx, placeholder_do_not_use=self.visitChildren(ctx))
 
-    # Function calls ---------------
-
-    def visitSimple_call(self, ctx):
-        return Call._from_simple(self, ctx)
-
-    def visitStandard_call(self, ctx):
-        return Call._from_standard(self, ctx)
-
     def visitExpression_list(self, ctx):
+        # return list of args, ignoring ',' for constructing function calls
         args = [c.accept(self) for c in ctx.children if not isinstance(c, Tree.TerminalNode)]
         return args
-
-    def visitValue_list(self, ctx):
-        return ValueList._from_fields(self, ctx)
-
-    def visitAggregate_windowed_function(self, ctx):
-        return Call._from_aggregate(self, ctx)
-
-    def visitRanking_windowed_function(self, ctx):
-        return Call._from_aggregate(self, ctx)
-
-    def visitNext_value_for_function(self, ctx):
-        return Call._from_aggregate(self, ctx)
-
-    def visitCast_call(self, ctx):
-        return Call._from_cast(self, ctx)
-
-    # simple dropping of tokens -----------------------------------------------
-    # Note can't filter out TerminalNodeImpl from some currently as in something like
-    # "SELECT a FROM b WHERE 1", the 1 will be a terminal node in where_clause
-
-    def visitSql_clauses(self, ctx):
-        return self.visitChildren(ctx, predicate = lambda n: not isinstance(n, Tree.TerminalNode) )
-
-    def visitSelect_list(self, ctx):
-        return self.visitChildren(ctx, predicate = lambda n: not isinstance(n, Tree.TerminalNode) )
-
-    def visitBracket_expression(self, ctx): 
-        return self.visitChildren(ctx, predicate = lambda n: not isinstance(n, Tree.TerminalNode) )
-
-    def visitSubquery_expression(self, ctx): 
-        return self.visitChildren(ctx, predicate = lambda n: not isinstance(n, Tree.TerminalNode) )
-
-    def visitBracket_search_expression(self, ctx): 
-        return self.visitChildren(ctx, predicate = lambda n: not isinstance(n, Tree.TerminalNode) )
-
-    def visitBracket_query_expression(self, ctx):
-        return self.visitChildren(ctx, predicate = lambda n: not isinstance(n, Tree.TerminalNode) )
-
-    def visitBracket_table_source(self, ctx):
-        return self.visitChildren(ctx, predicate = lambda n: not isinstance(n, Tree.TerminalNode) )
-
-    def visitTable_alias(self, ctx):
-        return self.visitChildren(ctx, predicate = lambda n: not isinstance(n, Tree.TerminalNode) )
-
-    def visitTable_value_constructor(self, ctx):
-        return self.visitChildren(ctx, predicate = lambda n: not isinstance(n, Tree.TerminalNode) )
-
-    def visitWhere_clause_dml(self, ctx):
-        return self.visitChildren(ctx, predicate = lambda n: not isinstance(n, Tree.TerminalNode) )
 
     def visitColumn_name_list(self, ctx):
         return [Identifier(c, name=c.accept(self)) for c in ctx.children if not isinstance(c, Tree.TerminalNode)]
 
+    # simple dropping of tokens -----------------------------------------------
+
+    _remove_terminal = [
+            'sql_clauses', 'select_list', 'bracket_expression', 'subquery_expression',
+            'bracket_search_expression', 'bracket_query_expression', 'bracket_table_source',
+            'table_alias', 'table_value_constructor', 'where_clause_dml']
+
+for item in list(globals().values()):
+    if inspect.isclass(item) and issubclass(item, AstNode):
+        item._bind_to_visitor(AstVisitor)
+
+for rule in AstVisitor._remove_terminal: 
+    #f = partial(AstVisitor.visitChildren, predicate = lambda n: not isinstance(n, Tree.TerminalNode))
+    def visitor(self, ctx):
+        return self.visitChildren(ctx, predicate = lambda n: not isinstance(n, Tree.TerminalNode))
+    setattr(AstVisitor, 'visit' + rule.capitalize(), visitor)
 
 
+# Error Listener ------------------------------------------------------------------
 
 from antlr4.error.ErrorListener import ErrorListener
 from antlr4.error.Errors import RecognitionException
