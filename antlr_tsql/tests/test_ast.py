@@ -40,10 +40,10 @@ def load_dump(fname):
         for cmd, res in cmds: all_cmds.append((start, cmd, res))
     return all_cmds
 
-@pytest.mark.parametrize('start,cmd,res', [
-        *load_dump('dump_visual_checks.yml'),
-        *load_dump('dump_v0.3.yml'),
-        #'v0.4.yml'
-        ])
-def test_dump(start, cmd, res):
-    assert repr(ast.parse(cmd, start, strict=True)) == res
+#@pytest.mark.parametrize('start,cmd,res', [
+#        *load_dump('dump_visual_checks.yml'),
+#        *load_dump('dump_v0.3.yml'),
+#        #'v0.4.yml'
+#        ])
+#def test_dump(start, cmd, res):
+#    assert repr(ast.parse(cmd, start, strict=True)) == res
