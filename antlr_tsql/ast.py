@@ -16,6 +16,7 @@ def parse(sql_text, start='tsql_file', strict=False):
 
     if strict:
         error_listener = CustomErrorListener()
+        parser.removeErrorListeners()
         parser.addErrorListener(error_listener)
 
     return visitor.visit(getattr(parser, start)())
@@ -67,6 +68,7 @@ class SelectStmt(AstNode):
         fields = ['with_expression->with_expr', 
                   'order_by_clause', 'for_clause', 'option_clause']
         
+        # This node may be a Union
         q_node = visitor.visit(ctx.query_expression())
         # q_node may be None if there was a parsing error
         if q_node:
@@ -393,11 +395,14 @@ class CustomErrorListener(ErrorListener):
         else:
             raise AntlrException(msg, None)
 
-    #def reportAmbiguity(self, recognizer, dfa, startIndex, stopIndex, exact, ambigAlts, configs):
+    def reportAmbiguity(self, recognizer, dfa, startIndex, stopIndex, exact, ambigAlts, configs):
+        return
     #    raise Exception("TODO")
 
-    #def reportAttemptingFullContext(self, recognizer, dfa, startIndex, stopIndex, conflictingAlts, configs):
+    def reportAttemptingFullContext(self, recognizer, dfa, startIndex, stopIndex, conflictingAlts, configs):
+        return
     #    raise Exception("TODO")
 
-    #def reportContextSensitivity(self, recognizer, dfa, startIndex, stopIndex, prediction, configs):
+    def reportContextSensitivity(self, recognizer, dfa, startIndex, stopIndex, prediction, configs):
+        return
     #    raise Exception("TODO")
