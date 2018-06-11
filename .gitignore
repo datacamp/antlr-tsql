@@ -77,3 +77,10 @@ target/
 # Mac stuff -------------------------------------------------------------------
 .DS_Store
 tests/.DS_Store
+
+# Custom stuff ------------
+tests/dump_*.yml
+antlr_tsql/js/*
+!antlr_tsql/js/index.js
+antlr_tsql/tsql*.py
+antlr_tsql/tsql*.tokens
