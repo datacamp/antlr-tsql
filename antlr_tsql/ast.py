@@ -134,6 +134,30 @@ class DeclareStmt(AstNode):
     _fields = ['placeholder_do_not_use']
 
 
+class FetchStmt(AstNode):
+    _fields = ['type', 'source', 'vars']
+    _rules = [('fetch_cursor', '_from_standard')]
+
+    @classmethod
+    def _from_standard(cls, visitor, ctx):
+        fetch_type = ctx.children[1].getText().upper()
+        source = ctx.cursor_name().accept(visitor)
+
+        variables_offset = list(map(lambda child: child.getText(), ctx.children)).index('INTO') + 1
+        variables = []
+        for variable in ctx.children[variables_offset:]:
+            if variable.getText() == ',': continue
+            variableResult = Identifier(variable, name=variable.getText())
+            variables.append(variableResult)
+
+        return cls(ctx, type=fetch_type, source=source, vars=variables)
+
+
+# TODO FetchType(type, number)
+
+# TODO primitive expression
+
+
 class SetStmt(AstNode):
     _fields = ['placeholder_do_not_use']
 
@@ -387,9 +411,6 @@ class AstVisitor(tsqlVisitor):
 
     def visitTerminal(self, ctx):
         return ctx.getText()
-
-    def visitFetch_expression(self, ctx):
-        return self.visit(ctx.expression())
 
     def visitConstant(self, ctx):
         res = self.visitChildren(ctx)
