@@ -158,6 +158,17 @@ class Identifier(AstNode):
 
         return cls._from_fields(visitor, ctx)
 
+
+class WhileStmt(AstNode):
+    _fields = ['search_condition', 'sql_clause->body']
+    _rules = ['while_statement']
+
+
+class Body(AstNode):
+    _fields = ['sql_clauses->statements']
+    _rules = ['block_statement']
+
+
 class AliasExpr(AstNode):
     _fields = ['expression->expr', 'alias']
     _rules = [('table_source_item_name', '_from_source_table_item'),
