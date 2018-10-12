@@ -131,7 +131,8 @@ class UpdateStmt(AstNode):
 class DeclareStmt(AstNode):
     # TODO sort out all forms of declare statements
     #      this configuration is to allow AST node selection in the meantime
-    _fields = ['placeholder_do_not_use']
+    _fields = ['cursor_name->variable', 'declare_set_cursor_common->value']
+    _rules = ['declare_statement', 'declare_cursor']
 
 
 class FetchStmt(AstNode):
@@ -416,9 +417,6 @@ class AstVisitor(tsqlVisitor):
         res = self.visitChildren(ctx)
         return res if not res.startswith('+') else res[1:]
 
-    def visitDeclare_statement(self, ctx):
-        return DeclareStmt(ctx, placeholder_do_not_use=self.visitChildren(ctx))
-
     def visitSet_statement(self, ctx):
         return SetStmt(ctx, placeholder_do_not_use=self.visitChildren(ctx))
 
@@ -438,7 +436,7 @@ class AstVisitor(tsqlVisitor):
     _remove_terminal = [
             'sql_clauses', 'select_list', 'bracket_expression', 'subquery_expression',
             'bracket_search_expression', 'bracket_query_expression', 'bracket_table_source',
-            'table_alias', 'table_value_constructor', 'where_clause_dml']
+            'table_alias', 'table_value_constructor', 'where_clause_dml', 'declare_set_cursor_common']
 
 
 # Override visit methods in AstVisitor for all nodes (in _rules) that convert to the AstNode classes
