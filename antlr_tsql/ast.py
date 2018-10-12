@@ -138,6 +138,10 @@ class SetStmt(AstNode):
     _fields = ['placeholder_do_not_use']
 
 
+class PrintStmt(AstNode):
+    _fields = ['placeholder_do_not_use']
+
+
 class Union(AstNode):
     _fields = ['left', 'op', 'right']        
     _rules = ['union_query_expression']
@@ -396,6 +400,9 @@ class AstVisitor(tsqlVisitor):
 
     def visitSet_statement(self, ctx):
         return SetStmt(ctx, placeholder_do_not_use=self.visitChildren(ctx))
+
+    def visitPrint_statement(self, ctx):
+        return PrintStmt(ctx, placeholder_do_not_use=self.visitChildren(ctx))
 
     def visitExpression_list(self, ctx):
         # return list of args, ignoring ',' for constructing function calls
