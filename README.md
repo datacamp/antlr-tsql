@@ -7,7 +7,7 @@
 
 ANTLR requires Java, so we suggest you use Docker when building grammars. The `Makefile` contains directives to clean, build, test and deploy the ANTLR grammar. It does not run Docker itself, so run `make` inside Docker.
 
-```
+```bash
 # Build the docker container
 docker build -t antlr_tsql .
 
@@ -35,7 +35,7 @@ If you're actively developing on the ANLTR grammar or the tree shaping, it's a g
 - Clone the ast-viewer repo and build the Docker image according to the instructions.
 - Spin up a docker container that volume mounts the grammar JS and the Python package, rebuilds the JS and symlink-installs the package, and runs the server on port 3000:
 
-  ```
+  ```bash
   docker run -it \
     -u root \
     -v ~/workspace/antlr-tsql/antlr_tsql:/app/app/static/grammar/antlr_tsql \

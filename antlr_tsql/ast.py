@@ -1,28 +1,13 @@
 from antlr4.tree import Tree
-from antlr4.InputStream import InputStream
-from antlr4 import FileStream, CommonTokenStream
 
-from antlr_ast import CustomErrorListener, AstNode
+import antlr_ast
+from antlr_ast import AstNode
 
-from .tsqlLexer import tsqlLexer
-from .tsqlParser import tsqlParser
-from .tsqlVisitor import tsqlVisitor
+from . import tsql_grammar
 
 
 def parse(sql_text, start='tsql_file', strict=False):
-    input_stream = InputStream(sql_text)
-
-    lexer = tsqlLexer(input_stream)
-    token_stream = CommonTokenStream(lexer)
-    parser = tsqlParser(token_stream)
-    visitor = AstVisitor()
-
-    if strict:
-        error_listener = CustomErrorListener()
-        parser.removeErrorListeners()
-        parser.addErrorListener(error_listener)
-
-    return visitor.visit(getattr(parser, start)())
+    return antlr_ast.parse(tsql_grammar, AstVisitor(), sql_text, start, strict)
 
 
 import yaml
@@ -372,7 +357,7 @@ import inspect
 from functools import partial
 
 
-class AstVisitor(tsqlVisitor):
+class AstVisitor(tsql_grammar.Visitor):
     def visitChildren(self, node, predicate=None):
         """Default ParseTreeVisitor subtree visiting method
 
