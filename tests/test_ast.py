@@ -18,7 +18,14 @@ def test_ast_parse_strict():
 #     )  # currently is just raw text
 
 
-@pytest.mark.parametrize("fname", ["visual_checks.yml", "v0.3.yml", "v0.4.yml"])
+@pytest.mark.parametrize(
+    "fname",
+    [
+        pytest.mark.dependency(name="d1")("visual_checks.yml"),
+        pytest.mark.dependency(name="d2")("v0.3.yml"),
+        pytest.mark.dependency(name="d3")("v0.4.yml"),
+    ],
+)
 def test_ast_examples_parse(fname):
     # just make sure they don't throw error for now..
     import yaml
@@ -51,9 +58,18 @@ def load_dump(fname):
 @pytest.mark.parametrize(
     "start,cmd,res",
     [
-        *load_dump("dump_visual_checks.yml"),
-        *load_dump("dump_v0.3.yml"),
-        *load_dump("dump_v0.4.yml"),
+        *map(
+            lambda case: pytest.mark.dependency(name="r1", depends=["d1"])(case),
+            load_dump("dump_visual_checks.yml"),
+        ),
+        *map(
+            lambda case: pytest.mark.dependency(name="r2", depends=["d2"])(case),
+            load_dump("dump_v0.3.yml"),
+        ),
+        *map(
+            lambda case: pytest.mark.dependency(name="r3", depends=["d3"])(case),
+            load_dump("dump_v0.4.yml"),
+        ),
     ],
 )
 def test_dump(start, cmd, res):
