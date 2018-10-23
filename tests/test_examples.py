@@ -1,6 +1,7 @@
 import pytest
 import os
 from antlr_tsql import ast
+from tests.test_ast import ast_examples_parse
 
 
 def load_dump(fname):
@@ -19,9 +20,9 @@ def load_dump(fname):
 @pytest.mark.parametrize(
     "start,cmd,res",
     [
-        *load_dump("dump_visual_checks.yml"),
-        *load_dump("dump_v0.3.yml"),
-        *load_dump("dump_v0.4.yml"),
+        *load_dump(ast_examples_parse("visual_checks.yml")),
+        *load_dump(ast_examples_parse("v0.3.yml")),
+        *load_dump(ast_examples_parse("v0.4.yml")),
     ],
 )
 def test_dump(start, cmd, res):

@@ -18,15 +18,7 @@ def test_ast_parse_strict():
 #     )  # currently is just raw text
 
 
-@pytest.mark.parametrize(
-    "fname",
-    [
-        pytest.mark.dependency(name="d1")("visual_checks.yml"),
-        pytest.mark.dependency(name="d2")("v0.3.yml"),
-        pytest.mark.dependency(name="d3")("v0.4.yml"),
-    ],
-)
-def test_ast_examples_parse(fname):
+def ast_examples_parse(fname):
     # just make sure they don't throw error for now..
     import yaml
 
@@ -38,5 +30,19 @@ def test_ast_examples_parse(fname):
         for cmd in cmds:
             res[start].append([cmd, repr(ast.parse(cmd, start, strict=True))])
     print(res)
-    with open(dirname + "/dump_" + fname, "w") as out_f:
+    filename = "dump_" + fname
+    with open(dirname + "/" + filename, "w") as out_f:
         yaml.dump(res, out_f)
+    return filename
+
+
+@pytest.mark.parametrize(
+    "fname",
+    [
+        "visual_checks.yml",
+        "v0.3.yml",
+        "v0.4.yml",
+    ],
+)
+def test_ast_examples_parse(fname):
+    return ast_examples_parse(fname)
