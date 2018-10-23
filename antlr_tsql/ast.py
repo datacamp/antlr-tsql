@@ -2,9 +2,12 @@ from antlr4.tree import Tree
 from antlr4.InputStream import InputStream
 from antlr4 import FileStream, CommonTokenStream
 
+from antlr_ast import CustomErrorListener, AstNode
+
 from .tsqlLexer import tsqlLexer
 from .tsqlParser import tsqlParser
 from .tsqlVisitor import tsqlVisitor
+
 
 def parse(sql_text, start='tsql_file', strict=False):
     input_stream = InputStream(sql_text)
@@ -30,8 +33,6 @@ def parse_from_yaml(fname):
         out[start] = [parse(cmd, start) for cmd in cmds]
     return out
 
-from antlr_ast import AstNode
-import antlr_ast
 
 class Unshaped(AstNode):
     _fields = ['arr']
@@ -40,15 +41,18 @@ class Unshaped(AstNode):
         self.arr = arr
         self._ctx = ctx
 
+
 class Script(AstNode):
     _fields = ['batch']
     _priority = 0
     _rules = ['tsql_file']
 
+
 class Batch(AstNode):
     _fields = ['sql_clauses->statements']
     _priority = 0
     _rules = ['batch']
+
 
 class SelectStmt(AstNode):
     _fields = ['pref',
@@ -83,6 +87,7 @@ class SelectStmt(AstNode):
             return q_node
         else: return visitor.visitChildren(ctx)
 
+
 class InsertStmt(AstNode):
     _fields = ['with_expression->with_expr', 'top_clause_dm->top_clause', 
                'INTO->into',
@@ -93,9 +98,11 @@ class InsertStmt(AstNode):
 
     _rules = ['insert_statement']
 
+
 class ValueList(AstNode):
     _fields = ['expression_list->values']
     _rules = ['value_list']
+
 
 class DeleteStmt(AstNode):
     _fields = ['with_expression->with_expr', 'top_clause_dm->top_clause',
@@ -108,6 +115,7 @@ class DeleteStmt(AstNode):
 
     _rules = ['delete_statement']
 
+
 class UpdateStmt(AstNode):
     _fields = ['with_expression->with_expr', 'top_clause_dm->top_clause',
                'ddl_object->target', 'rowset_function_limited->target',    # TODO make these own rule in grammar?
@@ -119,17 +127,50 @@ class UpdateStmt(AstNode):
 
     _rules = ['update_statement']
 
+
 class DeclareStmt(AstNode):
     # TODO sort out all forms of declare statements
     #      this configuration is to allow AST node selection in the meantime
-    _fields = ['placeholder_do_not_use']
+    _fields = ['cursor_name->variable', 'declare_set_cursor_common->value']
+    _rules = ['declare_statement', 'declare_cursor']
+
+
+class FetchStmt(AstNode):
+    _fields = ['type', 'source', 'vars']
+    _rules = [('fetch_cursor', '_from_standard')]
+
+    @classmethod
+    def _from_standard(cls, visitor, ctx):
+        fetch_type = ctx.children[1].getText().upper()
+        source = ctx.cursor_name().accept(visitor)
+
+        variables_offset = list(map(lambda child: child.getText(), ctx.children)).index('INTO') + 1
+        variables = []
+        for variable in ctx.children[variables_offset:]:
+            if variable.getText() == ',': continue
+            variableResult = Identifier(variable, name=variable.getText())
+            variables.append(variableResult)
+
+        return cls(ctx, type=fetch_type, source=source, vars=variables)
+
+
+# TODO FetchType(type, number)
+
+# TODO primitive expression
+
 
 class SetStmt(AstNode):
     _fields = ['placeholder_do_not_use']
 
+
+class PrintStmt(AstNode):
+    _fields = ['placeholder_do_not_use']
+
+
 class Union(AstNode):
     _fields = ['left', 'op', 'right']        
     _rules = ['union_query_expression']
+
 
 class Identifier(AstNode):
     # should have server, database, schema, table, name
@@ -145,6 +186,17 @@ class Identifier(AstNode):
             return ident
 
         return cls._from_fields(visitor, ctx)
+
+
+class WhileStmt(AstNode):
+    _fields = ['search_condition', 'sql_clause->body']
+    _rules = ['while_statement']
+
+
+class Body(AstNode):
+    _fields = ['sql_clauses->statements']
+    _rules = ['block_statement']
+
 
 class AliasExpr(AstNode):
     _fields = ['expression->expr', 'alias']
@@ -175,8 +227,10 @@ class AliasExpr(AstNode):
         else:
             return visitor.visitChildren(ctx)
 
+
 class Star(AstNode):
     _fields = []
+
 
 class BinaryExpr(AstNode):
     _fields = ['left', 'op', 'comparison_operator->op', 'right']
@@ -196,21 +250,26 @@ class BinaryExpr(AstNode):
 
         return bin_expr
 
+
 class UnaryExpr(AstNode):
     _fields = ['op', 'expression->expr']
     _rules = ['unary_operator_expression%s'%ii for ii in ('',2,3)]
+
 
 class TopExpr(AstNode):
     _fields = ['expression->expr', 'PERCENT->percent', 'WITH->with_ties']
     _rules = ['top_clause', 'top_clause_dm']
 
+
 class OrderByExpr(AstNode):
     _fields = ['order_by_expression->expr', 'offset', 'fetch_expression->fetch']
     _rules = ['order_by_clause']
 
+
 class SortBy(AstNode):
     _fields = ['expression->expr', 'direction']
     _rules = ['order_by_expression']
+
 
 class JoinExpr(AstNode):
     _fields = ['left', 'op->join_type', 'join_type', 'right'
@@ -228,25 +287,31 @@ class JoinExpr(AstNode):
     def _from_table_source_item_joined(cls, visitor, ctx):
         visitor.visit(ctx.join_part())
 
+
 class Case(AstNode):
     _fields = ['caseExpr->input', 'switch_search_condition_section->switches', 'switch_section->switches', 'elseExpr->else_expr']
     _rules = ['case_expression']
+
 
 class CaseWhen(AstNode):
     _fields = ['whenExpr->when', 'thenExpr->then']
     _rules = ['switch_search_condition_section']
 
+
 class IfElse(AstNode):
     _fields = ['search_condition', 'if_expr', 'else_expr']
     _rules = ['if_statement']
+
 
 class OverClause(AstNode):
     _fields = ['expression_list->partition', 'order_by_clause', 'row_or_range_clause']
     _rules = ['over_clause']
 
+
 class Sublink(AstNode):
     _fields = ['test_expr', 'op', 'pref', 'subquery->select']
     _rules = ['sublink_expression']
+
 
 from collections.abc import Sequence
 class Call(AstNode):
@@ -305,8 +370,16 @@ class Call(AstNode):
 # PARSE TREE VISITOR ----------------------------------------------------------
 import inspect
 from functools import partial
+
+
 class AstVisitor(tsqlVisitor):
     def visitChildren(self, node, predicate=None):
+        """Default ParseTreeVisitor subtree visiting method
+
+        :param node: Tree subclass (Context, Terminal...)
+        :param predicate: skip child nodes that fulfill the predicate
+        :return: AstNode
+        """
         result = self.defaultResult()
         n = node.getChildCount()
         for i in range(n):
@@ -340,18 +413,15 @@ class AstVisitor(tsqlVisitor):
     def visitTerminal(self, ctx):
         return ctx.getText()
 
-    def visitFetch_expression(self, ctx):
-        return self.visit(ctx.expression())
-
     def visitConstant(self, ctx):
         res = self.visitChildren(ctx)
         return res if not res.startswith('+') else res[1:]
 
-    def visitDeclare_statement(self, ctx):
-        return DeclareStmt(ctx, placeholder_do_not_use=self.visitChildren(ctx))
-
     def visitSet_statement(self, ctx):
         return SetStmt(ctx, placeholder_do_not_use=self.visitChildren(ctx))
+
+    def visitPrint_statement(self, ctx):
+        return PrintStmt(ctx, placeholder_do_not_use=self.visitChildren(ctx))
 
     def visitExpression_list(self, ctx):
         # return list of args, ignoring ',' for constructing function calls
@@ -366,43 +436,21 @@ class AstVisitor(tsqlVisitor):
     _remove_terminal = [
             'sql_clauses', 'select_list', 'bracket_expression', 'subquery_expression',
             'bracket_search_expression', 'bracket_query_expression', 'bracket_table_source',
-            'table_alias', 'table_value_constructor', 'where_clause_dml']
+            'table_alias', 'table_value_constructor', 'where_clause_dml', 'declare_set_cursor_common']
 
+
+# Override visit methods in AstVisitor for all nodes (in _rules) that convert to the AstNode classes
 for item in list(globals().values()):
     if inspect.isclass(item) and issubclass(item, AstNode):
         item._bind_to_visitor(AstVisitor)
 
+# Override node visiting methods to add terminal child skipping in AstVisitor
 for rule in AstVisitor._remove_terminal: 
-    #f = partial(AstVisitor.visitChildren, predicate = lambda n: not isinstance(n, Tree.TerminalNode))
-    def visitor(self, ctx):
-        return self.visitChildren(ctx, predicate = lambda n: not isinstance(n, Tree.TerminalNode))
-    setattr(AstVisitor, 'visit' + rule.capitalize(), visitor)
+    # f = partial(AstVisitor.visitChildren, predicate = lambda n: not isinstance(n, Tree.TerminalNode))
+    def skip_terminal_child_nodes(self, ctx):
+        return self.visitChildren(ctx, predicate=lambda n: not isinstance(n, Tree.TerminalNode))
+    setattr(AstVisitor, 'visit' + rule.capitalize(), skip_terminal_child_nodes)
 
 
-# Error Listener ------------------------------------------------------------------
-
-from antlr4.error.ErrorListener import ErrorListener
-from antlr4.error.Errors import RecognitionException
-class AntlrException(Exception):
-    def __init__(self, msg, orig):
-        self.msg, self.orig = msg, orig
-
-class CustomErrorListener(ErrorListener):
-    def syntaxError(self, recognizer, badSymbol, line, col, msg, e):
-        if e is not None:
-            msg = "line {line}: {col} {msg}".format(line=line, col=col, msg=msg)
-            raise AntlrException(msg, e)
-        else:
-            raise AntlrException(msg, None)
-
-    def reportAmbiguity(self, recognizer, dfa, startIndex, stopIndex, exact, ambigAlts, configs):
-        return
-    #    raise Exception("TODO")
-
-    def reportAttemptingFullContext(self, recognizer, dfa, startIndex, stopIndex, conflictingAlts, configs):
-        return
-    #    raise Exception("TODO")
-
-    def reportContextSensitivity(self, recognizer, dfa, startIndex, stopIndex, prediction, configs):
-        return
-    #    raise Exception("TODO")
+if __name__ == "__main__":
+    parse('SELECT id FROM artists WHERE id > 100')
