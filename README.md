@@ -30,19 +30,37 @@ from antlr_tsql import ast
 ast.parse("SELECT a from b")
 ```
 
-If you're actively developing on the ANLTR grammar or the tree shaping, it's a good idea to set up the [AST viewer](https://github.com/datacamp/ast-viewer) locally so you can immediately see the impact of your changes in a visual way. Currently, the AST viewer still uses the JS grammar for the actual parsing and Python for the tree shaping ([open issue](https://github.com/datacamp/ast-viewer/issues/13)), so there's some work needed:
+If you're actively developing on the ANLTR grammar or the tree shaping, it's a good idea to set up the [AST viewer](https://github.com/datacamp/ast-viewer) locally so you can immediately see the impact of your changes in a visual way.
 
 - Clone the ast-viewer repo and build the Docker image according to the instructions.
-- Spin up a docker container that volume mounts the grammar JS and the Python package, rebuilds the JS and symlink-installs the package, and runs the server on port 3000:
+- Spin up a docker container that volume mounts the Python package, symlink-installs the package and runs the server on port 3000:
 
   ```bash
   docker run -it \
-    -u root \
-    -v ~/workspace/antlr-tsql/antlr_tsql:/app/app/static/grammar/antlr_tsql \
-    -v ~/workspace/antlr-tsql:/app/app/antlr-tsql \
-    -p 3000:3000 \
-    ast-viewer \
-    /bin/bash -c "make build_js && pip install -e app/antlr-tsql && python3 run.py"
+  -u root \
+  -v ~/workspace/antlr-tsql:/app/app/antlr-tsql \
+  -p 3000:3000 \
+  ast-viewer \
+  /bin/bash -c "echo 'Install development requirements in development:' \
+    && pip install -e app/antlr-tsql \
+    && python3 run.py"
+  ```
+  
+  When simultaneously developing other packages, volume mount and install those too:
+  
+  ```bash
+  docker run -it \
+  -u root \
+  -v ~/workspace/antlr-ast:/app/app/antlr-ast \
+  -v ~/workspace/antlr-plsql:/app/app/antlr-plsql \
+  -v ~/workspace/antlr-tsql:/app/app/antlr-tsql \
+  -p 3000:3000 \
+  ast-viewer \
+  /bin/bash -c "echo 'Install development requirements in development:' \
+    && pip install -e app/antlr-ast \
+    && pip install -e app/antlr-plsql \
+    && pip install -e app/antlr-tsql \
+    && python3 run.py"
   ```
 
 - If you update the tree shaping logic in this repo, the app will auto-update.
