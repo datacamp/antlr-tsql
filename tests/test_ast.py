@@ -40,37 +40,3 @@ def test_ast_examples_parse(fname):
     print(res)
     with open(dirname + "/dump_" + fname, "w") as out_f:
         yaml.dump(res, out_f)
-
-
-def load_dump(fname):
-    import yaml
-
-    dirname = os.path.dirname(__file__)
-    dump_data = yaml.load(open(dirname + "/" + fname))
-
-    all_cmds = []
-    for start, cmds in dump_data.items():
-        for cmd, res in cmds:
-            all_cmds.append((start, cmd, res))
-    return all_cmds
-
-
-@pytest.mark.parametrize(
-    "start,cmd,res",
-    [
-        *map(
-            lambda case: pytest.mark.dependency(name="r1", depends=["d1"])(case),
-            load_dump("dump_visual_checks.yml"),
-        ),
-        *map(
-            lambda case: pytest.mark.dependency(name="r2", depends=["d2"])(case),
-            load_dump("dump_v0.3.yml"),
-        ),
-        *map(
-            lambda case: pytest.mark.dependency(name="r3", depends=["d3"])(case),
-            load_dump("dump_v0.4.yml"),
-        ),
-    ],
-)
-def test_dump(start, cmd, res):
-    assert repr(ast.parse(cmd, start, strict=True)) == res
