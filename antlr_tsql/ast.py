@@ -1,7 +1,7 @@
 from antlr4.tree import Tree
 
 import antlr_ast
-from antlr_ast import AstNode
+from antlr_ast import AstNode, Placeholder
 
 from . import tsql_grammar
 
@@ -19,7 +19,7 @@ def parse_from_yaml(fname):
     return out
 
 
-class Unshaped(AstNode):
+class Unshaped(AstNode, Placeholder):
     _fields = ['arr']
 
     def __init__(self, ctx, arr=tuple()):
@@ -37,6 +37,21 @@ class Batch(AstNode):
     _fields = ['sql_clauses->statements']
     _priority = 0
     _rules = ['batch']
+
+
+class SqlClauses(AstNode):
+    """This helper prevents an unshaped clause from visiting sibling clauses.
+    This AstNode does not occur in the final ast.
+    TODO: Inheriting from a second helper class can help to classify these helper nodes
+    """
+    _rules = [('sql_clauses', '_from_clauses')]
+
+    @classmethod
+    def _from_clauses(cls, visitor, ctx):
+        child_result = visitor.visitChildren(ctx)
+        if isinstance(child_result, Unshaped):
+            child_result = child_result.arr
+        return child_result
 
 
 class SelectStmt(AstNode):
@@ -181,6 +196,11 @@ class WhileStmt(AstNode):
 class Body(AstNode):
     _fields = ['sql_clauses->statements']
     _rules = ['block_statement']
+
+
+class TableAliasExpr(AstNode):
+    _fields = ['r_id->alias', 'column_name_list->alias_columns', 'select_statement']
+    _rules = ['common_table_expression']
 
 
 class AliasExpr(AstNode):
@@ -419,9 +439,10 @@ class AstVisitor(tsql_grammar.Visitor):
     # simple dropping of tokens -----------------------------------------------
 
     _remove_terminal = [
-            'sql_clauses', 'select_list', 'bracket_expression', 'subquery_expression',
+            'select_list', 'bracket_expression', 'subquery_expression',
             'bracket_search_expression', 'bracket_query_expression', 'bracket_table_source',
-            'table_alias', 'table_value_constructor', 'where_clause_dml', 'declare_set_cursor_common']
+            'table_alias', 'table_value_constructor', 'where_clause_dml', 'declare_set_cursor_common',
+            'with_expression']
 
 
 # Override visit methods in AstVisitor for all nodes (in _rules) that convert to the AstNode classes
