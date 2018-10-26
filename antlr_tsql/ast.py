@@ -1,7 +1,7 @@
 from antlr4.tree import Tree
 
 import antlr_ast
-from antlr_ast import AstNode, Placeholder
+from antlr_ast import AstNode
 
 from . import tsql_grammar
 
@@ -19,7 +19,7 @@ def parse_from_yaml(fname):
     return out
 
 
-class Unshaped(AstNode, Placeholder):
+class Unshaped(AstNode):
     _fields = ['arr']
 
     def __init__(self, ctx, arr=tuple()):
@@ -42,7 +42,7 @@ class Batch(AstNode):
 class SqlClauses(AstNode):
     """This helper prevents an unshaped clause from visiting sibling clauses.
     This AstNode does not occur in the final ast.
-    TODO: Inheriting from a second helper class can help to classify these helper nodes
+    TODO: Inheriting from a helper class can help to classify these helper nodes
     """
     _rules = [('sql_clauses', '_from_clauses')]
 
@@ -128,11 +128,21 @@ class UpdateStmt(AstNode):
     _rules = ['update_statement']
 
 
+class UpdateElem(AstNode):
+    _fields = ['full_column_name->name', 'name', 'expression']
+    _rules = ['update_elem']
+
+
 class DeclareStmt(AstNode):
     # TODO sort out all forms of declare statements
     #      this configuration is to allow AST node selection in the meantime
-    _fields = ['cursor_name->variable', 'declare_set_cursor_common->value']
+    _fields = ['cursor_name->variable', 'declare_set_cursor_common->value', 'declare_local']
     _rules = ['declare_statement', 'declare_cursor']
+
+
+class DeclareLocal(AstNode):
+    _fields = ['LOCAL_ID->name', 'data_type->type']
+    _rules = ['declare_local']
 
 
 class FetchStmt(AstNode):
