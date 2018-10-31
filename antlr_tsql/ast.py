@@ -145,6 +145,19 @@ class DeclareLocal(AstNode):
     _rules = ['declare_local']
 
 
+class CursorStmt(AstNode):
+    _fields = ['type', 'variable']
+    _rules = [('cursor_statement', '_from_cursor')]
+
+    @classmethod
+    def _from_cursor(cls, visitor, ctx):
+        if ctx.declare_cursor() or ctx.fetch_cursor():
+            return visitor.visitChildren(ctx)
+        statement_type = ctx.children[0].getText().upper()
+        variable = ctx.cursor_name().accept(visitor)
+        return cls(ctx, type=statement_type, variable=variable)
+
+
 class FetchStmt(AstNode):
     _fields = ['type', 'source', 'vars']
     _rules = [('fetch_cursor', '_from_standard')]
