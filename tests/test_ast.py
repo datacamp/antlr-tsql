@@ -36,13 +36,6 @@ def ast_examples_parse(fname):
     return filename
 
 
-@pytest.mark.parametrize(
-    "fname",
-    [
-        "visual_checks.yml",
-        "v0.3.yml",
-        "v0.4.yml",
-    ],
-)
+@pytest.mark.parametrize("fname", ["visual_checks.yml", "v0.3.yml", "v0.4.yml"])
 def test_ast_examples_parse(fname):
     return ast_examples_parse(fname)
