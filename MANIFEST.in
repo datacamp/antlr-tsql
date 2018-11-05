@@ -1,1 +1,1 @@
-include antlr_tsql/js/*
+include antlr_tsql/antlr_py/*
