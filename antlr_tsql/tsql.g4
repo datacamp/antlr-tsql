@@ -731,7 +731,7 @@ common_table_expression
     ;
 
 update_elem
-    : (full_column_name | LOCAL_ID) ('=' | assignment_operator) expression
+    : (full_column_name | name=LOCAL_ID) ('=' | assignment_operator) expression
     | udt_column_name=r_id '.' method_name=r_id '(' expression_list ')'
     //| full_column_name '.' WRITE (expression, )
     ;
@@ -1047,7 +1047,7 @@ next_value_for_function
 // https://msdn.microsoft.com/en-us/library/ms189798.aspx
 ranking_windowed_function
     : (RANK | DENSE_RANK | ROW_NUMBER) '(' ')' over_clause
-    | NTILE '(' expression ')' over_clause
+    | (NTILE | FIRST_VALUE | LEAD | LAG) '(' expression ')' over_clause
     ;
 
 // https://msdn.microsoft.com/en-us/library/ms173454.aspx
@@ -1288,6 +1288,7 @@ simple_id
     | FAST
     | FAST_FORWARD
     | FIRST
+    | FIRST_VALUE
     | FOLLOWING
     | FORCE
     | FORCESEEK
@@ -1307,7 +1308,9 @@ simple_id
     | FORCED
     | KEYSET
     | IGNORE_NONCLUSTERED_COLUMNSTORE_INDEX
+    | LAG
     | LAST
+    | LEAD
     | LEVEL
     | LOCAL
     | LOCK_ESCALATION
@@ -1669,6 +1672,7 @@ FILEGROUP:                             F I L E G R O U P;
 FILEGROWTH:                            F I L E G R O W T H;
 FILESTREAM:                            F I L E S T R E A M;
 FIRST:                                 F I R S T;
+FIRST_VALUE:                           F I R S T '_' V A L U E;
 FOLLOWING:                             F O L L O W I N G;
 FORCE:                                 F O R C E;
 FORCED:                                F O R C E D;
@@ -1694,7 +1698,9 @@ KB:                                    K B;
 KEEP:                                  K E E P;
 KEEPFIXED:                             K E E P F I X E D;
 KEYSET:                                K E Y S E T;
+LAG:                                   L A G;
 LAST:                                  L A S T;
+LEAD:                                  L E A D;
 LEVEL:                                 L E V E L;
 LOCAL:                                 L O C A L;
 LOCK_ESCALATION:                       L O C K '_' E S C A L A T I O N;

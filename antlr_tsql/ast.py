@@ -39,6 +39,21 @@ class Batch(AstNode):
     _rules = ['batch']
 
 
+class SqlClauses(AstNode):
+    """This helper prevents an unshaped clause from visiting sibling clauses.
+    This AstNode does not occur in the final ast.
+    TODO: Inheriting from a helper class can help to classify these helper nodes
+    """
+    _rules = [('sql_clauses', '_from_clauses')]
+
+    @classmethod
+    def _from_clauses(cls, visitor, ctx):
+        child_result = visitor.visitChildren(ctx)
+        if isinstance(child_result, Unshaped):
+            child_result = child_result.arr
+        return child_result
+
+
 class SelectStmt(AstNode):
     _fields = ['pref',
                'select_list->target_list',
@@ -113,11 +128,34 @@ class UpdateStmt(AstNode):
     _rules = ['update_statement']
 
 
+class UpdateElem(AstNode):
+    _fields = ['full_column_name->name', 'name', 'expression']
+    _rules = ['update_elem']
+
+
 class DeclareStmt(AstNode):
     # TODO sort out all forms of declare statements
     #      this configuration is to allow AST node selection in the meantime
-    _fields = ['cursor_name->variable', 'declare_set_cursor_common->value']
+    _fields = ['cursor_name->variable', 'declare_set_cursor_common->value', 'declare_local']
     _rules = ['declare_statement', 'declare_cursor']
+
+
+class DeclareLocal(AstNode):
+    _fields = ['LOCAL_ID->name', 'data_type->type']
+    _rules = ['declare_local']
+
+
+class CursorStmt(AstNode):
+    _fields = ['type', 'variable']
+    _rules = [('cursor_statement', '_from_cursor')]
+
+    @classmethod
+    def _from_cursor(cls, visitor, ctx):
+        if ctx.declare_cursor() or ctx.fetch_cursor():
+            return visitor.visitChildren(ctx)
+        statement_type = ctx.children[0].getText().upper()
+        variable = ctx.cursor_name().accept(visitor)
+        return cls(ctx, type=statement_type, variable=variable)
 
 
 class FetchStmt(AstNode):
@@ -181,6 +219,11 @@ class WhileStmt(AstNode):
 class Body(AstNode):
     _fields = ['sql_clauses->statements']
     _rules = ['block_statement']
+
+
+class TableAliasExpr(AstNode):
+    _fields = ['r_id->alias', 'column_name_list->alias_columns', 'select_statement']
+    _rules = ['common_table_expression']
 
 
 class AliasExpr(AstNode):
@@ -419,9 +462,10 @@ class AstVisitor(tsql_grammar.Visitor):
     # simple dropping of tokens -----------------------------------------------
 
     _remove_terminal = [
-            'sql_clauses', 'select_list', 'bracket_expression', 'subquery_expression',
+            'select_list', 'bracket_expression', 'subquery_expression',
             'bracket_search_expression', 'bracket_query_expression', 'bracket_table_source',
-            'table_alias', 'table_value_constructor', 'where_clause_dml', 'declare_set_cursor_common']
+            'table_alias', 'table_value_constructor', 'where_clause_dml', 'declare_set_cursor_common',
+            'with_expression']
 
 
 # Override visit methods in AstVisitor for all nodes (in _rules) that convert to the AstNode classes
