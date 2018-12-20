@@ -35,21 +35,21 @@ If you're actively developing on the ANLTR grammar or the tree shaping, it's a g
 - Clone the ast-viewer repo and build the Docker image according to the instructions.
 - Spin up a docker container that volume mounts the Python package, symlink-installs the package and runs the server on port 3000:
 
-  ```bash
-  docker run -it \
+```bash
+docker run -it \
   -u root \
   -v ~/workspace/antlr-tsql:/app/app/antlr-tsql \
   -p 3000:3000 \
   ast-viewer \
   /bin/bash -c "echo 'Install development requirements in development:' \
-    && pip install -e app/antlr-tsql \
+    && pip install --no-deps -e app/antlr-tsql \
     && python3 run.py"
-  ```
-  
-  When simultaneously developing other packages, volume mount and install those too:
-  
-  ```bash
-  docker run -it \
+```
+
+When simultaneously developing other packages, volume mount and install those too:
+
+```bash
+docker run -it \
   -u root \
   -v ~/workspace/antlr-ast:/app/app/antlr-ast \
   -v ~/workspace/antlr-plsql:/app/app/antlr-plsql \
@@ -57,18 +57,18 @@ If you're actively developing on the ANLTR grammar or the tree shaping, it's a g
   -p 3000:3000 \
   ast-viewer \
   /bin/bash -c "echo 'Install development requirements in development:' \
-    && pip install -e app/antlr-ast \
-    && pip install -e app/antlr-plsql \
-    && pip install -e app/antlr-tsql \
+    && pip install --no-deps -e app/antlr-ast \
+    && pip install --no-deps -e app/antlr-plsql \
+    && pip install --no-deps -e app/antlr-tsql \
     && python3 run.py"
-  ```
+```
 
 - If you update the tree shaping logic in this repo, the app will auto-update.
 - If you change the grammar, you will have to first rebuild the grammar (with the `antlr_tsql` docker image) and restart the `ast-viewer` container.
 
 ### Run tests
 
-```
+```bash
 docker build -t antlr_tsql .
 docker run -t antlr_tsql make build test
 ```
