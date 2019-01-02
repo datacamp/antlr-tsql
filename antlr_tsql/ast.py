@@ -1,13 +1,18 @@
 from antlr4.tree import Tree
 
-import antlr_ast
-from antlr_ast import AstNode
+from antlr_ast.ast import (
+    parse as parse_ast,
+    bind_to_visitor,
+    AstNode,
+    AntlrException as ParseError,
+)
 
-from . import tsql_grammar
+from . import grammar
 
 
 def parse(sql_text, start="tsql_file", strict=False):
-    return antlr_ast.parse(tsql_grammar, AstVisitor(), sql_text, start, strict)
+    tree = parse_ast(grammar, sql_text, start, strict)
+    return AstVisitor().visit(tree)
 
 
 import yaml
@@ -22,7 +27,7 @@ def parse_from_yaml(fname):
 
 
 class Unshaped(AstNode):
-    _fields = ["arr"]
+    _fields_spec = ["arr"]
 
     def __init__(self, ctx, arr=tuple()):
         self.arr = arr
@@ -30,13 +35,13 @@ class Unshaped(AstNode):
 
 
 class Script(AstNode):
-    _fields = ["batch"]
+    _fields_spec = ["batch"]
     _priority = 0
     _rules = ["tsql_file"]
 
 
 class Batch(AstNode):
-    _fields = ["sql_clauses->statements"]
+    _fields_spec = ["sql_clauses->statements"]
     _priority = 0
     _rules = ["batch"]
 
@@ -53,12 +58,13 @@ class SqlClauses(AstNode):
     def _from_clauses(cls, visitor, ctx):
         child_result = visitor.visitChildren(ctx)
         if isinstance(child_result, Unshaped):
-            child_result = child_result.arr
+            if all(isinstance(res, AstNode) for res in child_result.arr):
+                child_result = child_result.arr
         return child_result
 
 
 class SelectStmt(AstNode):
-    _fields = [
+    _fields_spec = [
         "pref",
         "select_list->target_list",
         "top_clause",
@@ -99,7 +105,7 @@ class SelectStmt(AstNode):
 
 
 class InsertStmt(AstNode):
-    _fields = [
+    _fields_spec = [
         "with_expression->with_expr",
         "top_clause_dm->top_clause",
         "INTO->into",
@@ -117,12 +123,12 @@ class InsertStmt(AstNode):
 
 
 class ValueList(AstNode):
-    _fields = ["expression_list->values"]
+    _fields_spec = ["expression_list->values"]
     _rules = ["value_list"]
 
 
 class DeleteStmt(AstNode):
-    _fields = [
+    _fields_spec = [
         "with_expression->with_expr",
         "top_clause_dm->top_clause",
         "from_clause",
@@ -139,7 +145,7 @@ class DeleteStmt(AstNode):
 
 
 class UpdateStmt(AstNode):
-    _fields = [
+    _fields_spec = [
         "with_expression->with_expr",
         "top_clause_dm->top_clause",
         "ddl_object->target",
@@ -157,14 +163,14 @@ class UpdateStmt(AstNode):
 
 
 class UpdateElem(AstNode):
-    _fields = ["full_column_name->name", "name", "expression"]
+    _fields_spec = ["full_column_name->name", "name", "expression"]
     _rules = ["update_elem"]
 
 
 class DeclareStmt(AstNode):
     # TODO sort out all forms of declare statements
     #      this configuration is to allow AST node selection in the meantime
-    _fields = [
+    _fields_spec = [
         "cursor_name->variable",
         "declare_set_cursor_common->value",
         "declare_local",
@@ -173,12 +179,12 @@ class DeclareStmt(AstNode):
 
 
 class DeclareLocal(AstNode):
-    _fields = ["LOCAL_ID->name", "data_type->type"]
+    _fields_spec = ["LOCAL_ID->name", "data_type->type"]
     _rules = ["declare_local"]
 
 
 class CursorStmt(AstNode):
-    _fields = ["type", "variable"]
+    _fields_spec = ["type", "variable"]
     _rules = [("cursor_statement", "_from_cursor")]
 
     @classmethod
@@ -191,7 +197,7 @@ class CursorStmt(AstNode):
 
 
 class FetchStmt(AstNode):
-    _fields = ["type", "source", "vars"]
+    _fields_spec = ["type", "source", "vars"]
     _rules = [("fetch_cursor", "_from_standard")]
 
     @classmethod
@@ -218,21 +224,21 @@ class FetchStmt(AstNode):
 
 
 class SetStmt(AstNode):
-    _fields = ["placeholder_do_not_use"]
+    _fields_spec = ["placeholder_do_not_use"]
 
 
 class PrintStmt(AstNode):
-    _fields = ["placeholder_do_not_use"]
+    _fields_spec = ["placeholder_do_not_use"]
 
 
 class Union(AstNode):
-    _fields = ["left", "op", "right"]
+    _fields_spec = ["left", "op", "right"]
     _rules = ["union_query_expression"]
 
 
 class Identifier(AstNode):
     # should have server, database, schema, table, name
-    _fields = ["server", "database", "schema", "table", "name", "procedure->name"]
+    _fields_spec = ["server", "database", "schema", "table", "name", "procedure->name"]
     _rules = [
         "full_table_name",
         "table_name",
@@ -251,22 +257,22 @@ class Identifier(AstNode):
 
 
 class WhileStmt(AstNode):
-    _fields = ["search_condition", "sql_clause->body"]
+    _fields_spec = ["search_condition", "sql_clause->body"]
     _rules = ["while_statement"]
 
 
 class Body(AstNode):
-    _fields = ["sql_clauses->statements"]
+    _fields_spec = ["sql_clauses->statements"]
     _rules = ["block_statement"]
 
 
 class TableAliasExpr(AstNode):
-    _fields = ["r_id->alias", "column_name_list->alias_columns", "select_statement"]
+    _fields_spec = ["r_id->alias", "column_name_list->alias_columns", "select_statement"]
     _rules = ["common_table_expression"]
 
 
 class AliasExpr(AstNode):
-    _fields = ["expression->expr", "alias"]
+    _fields_spec = ["expression->expr", "alias"]
     _rules = [
         ("table_source_item_name", "_from_source_table_item"),
         ("select_list_elem", "_from_select_list_elem"),
@@ -299,11 +305,11 @@ class AliasExpr(AstNode):
 
 
 class Star(AstNode):
-    _fields = []
+    _fields_spec = []
 
 
 class BinaryExpr(AstNode):
-    _fields = ["left", "op", "comparison_operator->op", "right"]
+    _fields_spec = ["left", "op", "comparison_operator->op", "right"]
 
     _rules = [
         "binary_operator_expression",
@@ -326,27 +332,27 @@ class BinaryExpr(AstNode):
 
 
 class UnaryExpr(AstNode):
-    _fields = ["op", "expression->expr"]
+    _fields_spec = ["op", "expression->expr"]
     _rules = ["unary_operator_expression%s" % ii for ii in ("", 2, 3)]
 
 
 class TopExpr(AstNode):
-    _fields = ["expression->expr", "PERCENT->percent", "WITH->with_ties"]
+    _fields_spec = ["expression->expr", "PERCENT->percent", "WITH->with_ties"]
     _rules = ["top_clause", "top_clause_dm"]
 
 
 class OrderByExpr(AstNode):
-    _fields = ["order_by_expression->expr", "offset", "fetch_expression->fetch"]
+    _fields_spec = ["order_by_expression->expr", "offset", "fetch_expression->fetch"]
     _rules = ["order_by_clause"]
 
 
 class SortBy(AstNode):
-    _fields = ["expression->expr", "direction"]
+    _fields_spec = ["expression->expr", "direction"]
     _rules = ["order_by_expression"]
 
 
 class JoinExpr(AstNode):
-    _fields = [
+    _fields_spec = [
         "left",
         "op->join_type",
         "join_type",
@@ -369,7 +375,7 @@ class JoinExpr(AstNode):
 
 
 class Case(AstNode):
-    _fields = [
+    _fields_spec = [
         "caseExpr->input",
         "switch_search_condition_section->switches",
         "switch_section->switches",
@@ -379,22 +385,22 @@ class Case(AstNode):
 
 
 class CaseWhen(AstNode):
-    _fields = ["whenExpr->when", "thenExpr->then"]
-    _rules = ["switch_search_condition_section"]
+    _fields_spec = ["whenExpr->when", "thenExpr->then"]
+    _rules = ["switch_section", "switch_search_condition_section"]
 
 
 class IfElse(AstNode):
-    _fields = ["search_condition", "if_expr", "else_expr"]
+    _fields_spec = ["search_condition", "if_expr", "else_expr"]
     _rules = ["if_statement"]
 
 
 class OverClause(AstNode):
-    _fields = ["expression_list->partition", "order_by_clause", "row_or_range_clause"]
+    _fields_spec = ["expression_list->partition", "order_by_clause", "row_or_range_clause"]
     _rules = ["over_clause"]
 
 
 class Sublink(AstNode):
-    _fields = ["test_expr", "op", "pref", "subquery->select"]
+    _fields_spec = ["test_expr", "op", "pref", "subquery->select"]
     _rules = ["sublink_expression"]
 
 
@@ -402,7 +408,7 @@ from collections.abc import Sequence
 
 
 class Call(AstNode):
-    _fields = [
+    _fields_spec = [
         "name",
         "all_distinct->pref",
         "expression_list->args",
@@ -474,7 +480,7 @@ import inspect
 from functools import partial
 
 
-class AstVisitor(tsql_grammar.Visitor):
+class AstVisitor(grammar.Visitor):
     def visitChildren(self, node, predicate=None):
         """Default ParseTreeVisitor subtree visiting method
 
@@ -578,7 +584,7 @@ for rule in AstVisitor._remove_terminal:
             ctx, predicate=lambda n: not isinstance(n, Tree.TerminalNode)
         )
 
-    setattr(AstVisitor, "visit" + rule.capitalize(), skip_terminal_child_nodes)
+    bind_to_visitor(AstVisitor, rule, skip_terminal_child_nodes)
 
 
 if __name__ == "__main__":
