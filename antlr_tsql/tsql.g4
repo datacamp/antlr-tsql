@@ -197,7 +197,7 @@ output_dml_list_elem
     ;
 
 output_column_name
-    : (DELETED | INSERTED | table_name) '.' ('*' | r_id)
+    : (DELETED | INSERTED | table_name) '.' (STAR | r_id)
     | DOLLAR_ACTION
     ;
 
@@ -700,7 +700,7 @@ expression
     | '(' subquery ')'                                         #subquery_expression
     | op='~' expression                                        #unary_operator_expression
 
-    | left=expression op=('*' | '/' | '%') right=expression               #binary_operator_expression
+    | left=expression op=(STAR | '/' | '%') right=expression               #binary_operator_expression
     | op=('+' | '-') expression                                           #unary_operator_expression
     | left=expression op=('+' | '-' | '&' | '^' | '|') right=expression   #binary_operator_expression
     | left=expression comparison_operator right=expression                #binary_operator_expression
@@ -938,14 +938,14 @@ function_call
     | scalar_function_name '(' expression_list? ')'                     #standard_call
     | next_value_for_function                                           #nvf_call
     // https://msdn.microsoft.com/en-us/library/ms173784.aspx
-    | BINARY_CHECKSUM '(' '*' ')'                                       #standard_call
+    | BINARY_CHECKSUM '(' STAR ')'                                       #standard_call
     // https://msdn.microsoft.com/en-us/library/hh231076.aspx
     // https://msdn.microsoft.com/en-us/library/ms187928.aspx
     // MC-NOTE: TODO AST shaping for CAST
     | CAST '(' expression AS alias=data_type ')'                        #cast_call
     | CONVERT '(' data_type ',' expression (',' style=expression)? ')'  #standard_call
     // https://msdn.microsoft.com/en-us/library/ms189788.aspx
-    | CHECKSUM '(' '*' ')'                                              #simple_call
+    | CHECKSUM '(' STAR ')'                                              #simple_call
     // https://msdn.microsoft.com/en-us/library/ms190349.aspx
     | COALESCE '(' expression_list ')'                                  #standard_call
     // https://msdn.microsoft.com/en-us/library/ms188751.aspx
@@ -1019,7 +1019,7 @@ column_alias
     ;
 
 a_star
-    : '*'
+    : STAR
     ;
 
 table_value_constructor
@@ -1055,7 +1055,7 @@ aggregate_windowed_function
     : (AVG | MAX | MIN | SUM | STDEV | STDEVP | VAR | VARP)
       '(' all_distinct? expression ')' over_clause?
     | (COUNT | COUNT_BIG)
-      '(' (args='*' | all_distinct? expression) ')' over_clause?
+      '(' (args=STAR | all_distinct? expression) ')' over_clause?
     | CHECKSUM_AGG '(' all_distinct? expression ')'
     | GROUPING '(' expression ')'
     | GROUPING_ID '(' expression_list ')'
