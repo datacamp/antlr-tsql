@@ -8,9 +8,11 @@ from antlr_ast.ast import (
     process_tree,
     AliasNode,
     Speaker,
-    # references for export:
+    # references for export:  # TODO: put package exports in __init__?
     Terminal,
+    BaseNode as AstNode,
     AntlrException as ParseError,
+    dump_node,  # TODO only used in tests
 )
 
 from . import grammar
@@ -28,13 +30,13 @@ def parse(sql_text, start="tsql_file", strict=False):
 
 class Script(AliasNode):
     _fields_spec = ["batch"]
-    _rules = ["Tsql_file"]
+    _rules = ["tsql_file"]
     _priority = 0
 
 
 class Batch(AliasNode):
     _fields_spec = ["statements=sql_clauses"]
-    _rules = ["Batch"]
+    _rules = ["batch"]
     _priority = 0
 
 
@@ -66,37 +68,36 @@ class SelectStmt(AliasNode):
         "where_clause=where",
         "group_by_clause=group_by_item",
         "having",
+
+        "with_expr=with_expression",
+        "order_by_clause",
+        "for_clause",
+        "option_clause",
     ]
 
     _rules = ["query_specification", ("select_statement", "_from_select_rule")]
 
     @classmethod
     def _from_select_rule(cls, node):
-        # TODO add to fields_spec
-        fields = [
-            "with_expr=with_expression",
-            "order_by_clause",
-            "for_clause",
-            "option_clause",
-        ]
-
         # This node may be a Union
-        q_node = node.query_expression
+        query_node = node
+        while query_node.query_expression and query_node.isinstance("union_query_expression"):
+            query_node = query_node.query_expression
+
         # q_node may be None if there was a parsing error
-        if q_node:
-            outer_sel = cls.from_spec(node)
+        if query_node and query_node.query_specification:
+            query_node = cls.from_spec(query_node)
 
-            for k in [el.split("=")[0] for el in fields]:
-                attr = getattr(outer_sel, k, None)
-                if attr is not None:
-                    setattr(q_node, k, attr)
+            # combine with fields from outer node
+            outer = cls.from_spec(node)
+            for field in cls._fields:
+                value = getattr(outer, field)
+                if value:
+                    setattr(query_node, value)
 
-            # TODO which fields of q_node should be in SelectStmt _fields_spec?
-            q_node._fields = q_node._fields + fields
-
-            return q_node
+            return query_node
         else:
-            return node.children  # TODO
+            return node  # TODO
 
 
 class InsertStmt(AliasNode):
@@ -163,18 +164,18 @@ class UpdateElem(AliasNode):
 
 
 class DeclareStmt(AliasNode):
-    # TODO sort out all forms of declare statements
-    #      this configuration is to allow AST node selection in the meantime
     _fields_spec = [
+        "variable=LOCAL_ID",
         "variable=cursor_name",
         "value=declare_set_cursor_common",
         "declare_local",
+        "table_type_definition",  # TODO: improve
     ]
     _rules = ["declare_statement", "declare_cursor"]
 
 
 class DeclareLocal(AliasNode):
-    _fields_spec = ["name=LOCAL_ID", "type=data_type"]
+    _fields_spec = ["name=LOCAL_ID", "type=data_type", "value=expression"]
     _rules = ["declare_local"]
 
 
@@ -252,9 +253,9 @@ class TableAliasExpr(AliasNode):
 
 
 class AliasExpr(AliasNode):
-    _fields_spec = ["expr=expression", "alias=table_alias"]
+    _fields_spec = ["expr=expression", "alias=table_alias", "alias=column_alias"]
     _rules = [
-        ("table_source_item_name", "_from_source_table_item"),
+        ("table_source_item_name", "_from_source_table_item"),  # TODO: vs TableAliasExpr?
         ("select_list_elem", "_from_select_list_elem"),
     ]
 
@@ -268,7 +269,7 @@ class AliasExpr(AliasNode):
             ident.name = node.a_star
             return ident
         else:
-            return node  # TODO visitChildren -> fields
+            return node.expression  # TODO visitChildren -> fields
 
     @classmethod
     def _from_source_table_item(cls, node):
@@ -349,7 +350,7 @@ class JoinExpr(AliasNode):
     def _from_apply(cls, node):
         join_expr = JoinExpr.from_spec(node)
         if node.APPLY:  # TODO convention for keywords
-            join_expr.join_type = join_expr.join_type.get_text() + " APPLY"
+            join_expr.join_type = str(join_expr.join_type) + " APPLY"
 
         return join_expr
 
@@ -427,7 +428,7 @@ class Call(AliasNode):
             # find commas
             alias.args = []
             for ii, c in enumerate(node.children[2:-1], 2):  # skip name and '('
-                if not c.get_text() == ",":
+                if not c == ",":
                     alias.args.append(c)
 
         return alias
@@ -469,8 +470,20 @@ class Call(AliasNode):
 
 class Transformer:
     def visit_Constant(self, node):
-        # TODO strip +
         return node
+
+    def visit_Sign(self, node):
+        # TODO strip + sign from int?
+        # TODO: cleaner (reuseable helper?) (assignment_operator?)
+        return Terminal(
+            [node.get_text()], {"value": 0}, {}, node._ctx
+        )
+
+    def visit_Comparison_operator(self, node):
+        # TODO: cleaner (reuseable helper?) (assignment_operator?)
+        return Terminal(
+            [node.get_text()], {"value": 0}, {}, node._ctx
+        )
 
     # TODO: automatic tree should handle this
     # def visit_Set_statement(self, node):
@@ -479,7 +492,7 @@ class Transformer:
     # def visit_Print_statement(self, node):
     #     return PrintStmt(node, {"placeholder_field": node.children})
 
-    # TODO: simplify will handle this
+    # TODO: simplify_tree will handle this
     # def visit_Expression_list(self, node):
     #     return node.expression
     #
@@ -490,19 +503,19 @@ class Transformer:
 
 
 # TODO
-remove_terminal = [
-    "select_list",
-    "bracket_expression",
-    "subquery_expression",
-    "bracket_search_expression",
-    "bracket_query_expression",
-    "bracket_table_source",
-    "table_alias",
-    "table_value_constructor",
-    "where_clause_dml",
-    "declare_set_cursor_common",
-    "with_expression",
-]
+# remove_terminal = [
+#     "select_list",
+#     "bracket_expression",
+#     "subquery_expression",
+#     "bracket_search_expression",
+#     "bracket_query_expression",
+#     "bracket_table_source",
+#     "table_alias",
+#     "table_value_constructor",
+#     "where_clause_dml",
+#     "declare_set_cursor_common",
+#     "with_expression",
+# ]
 
 
 # Add visit methods to Transformer for all nodes (in _rules) that convert to AliasNode instances
