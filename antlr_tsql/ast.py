@@ -204,13 +204,15 @@ class FetchStmt(AliasNode):
 
 
 # TODO
-# class SetStmt(AliasNode):
-#     _fields_spec = []
-#     _rules = ["set_statement"]
+class SetStmt(AliasNode):
+    _fields_spec = []
+    _rules = ["set_statement"]
 
 
+# TODO
 class PrintStmt(AliasNode):
-    _fields_spec = ["placeholder_do_not_use"]
+    _fields_spec = []
+    _rules = ["print_statement"]
 
 
 class Union(AliasNode):
@@ -254,7 +256,7 @@ class TableAliasExpr(AliasNode):
 
 
 class AliasExpr(AliasNode):
-    _fields_spec = ["expr=expression", "alias=table_alias", "alias=column_alias"]
+    _fields_spec = ["expr=expression", "alias=table_alias.r_id", "alias=column_alias"]
     _rules = [
         ("table_source_item_name", "_from_source_table_item"),  # TODO: vs TableAliasExpr?
         ("select_list_elem", "_from_select_list_elem"),
@@ -486,36 +488,25 @@ class Transformer:
             [node.get_text()], {"value": 0}, {}, node._ctx
         )
 
-    # TODO: automatic tree should handle this
-    # def visit_Set_statement(self, node):
-    #     return SetStmt(node, {"placeholder_field": node.children})
-    #
-    # def visit_Print_statement(self, node):
-    #     return PrintStmt(node, {"placeholder_field": node.children})
+    def visit_With_expression(self, node):
+        return node.common_table_expression
 
-    # TODO: simplify_tree will handle this
-    # def visit_Expression_list(self, node):
-    #     return node.expression
-    #
-    # def visit_Column_name_list(self, node):
-    #     return node.r_id
-
-    # simple dropping of tokens -----------------------------------------------
-
+    def visit_Table_value_constructor(self, node):
+        return node.value_list
 
 # TODO
 # remove_terminal = [
-#     "select_list",
-#     "bracket_expression",
-#     "subquery_expression",
-#     "bracket_search_expression",
-#     "bracket_query_expression",
-#     "bracket_table_source",
-#     "table_alias",
-#     "table_value_constructor",
+#     # "select_list",  # simplify_tree
+#     # "bracket_expression",  # simplify_tree
+#     # "subquery_expression",  # simplify_tree
+#     # "bracket_search_expression",  # simplify_tree
+#     # "bracket_query_expression",  # transformer (or simplify_tree)
+#     # "bracket_table_source",  # simplify_tree
+#     # "table_alias",
+#     # "table_value_constructor",
 #     "where_clause_dml",
 #     "declare_set_cursor_common",
-#     "with_expression",
+#     # "with_expression",
 # ]
 
 
