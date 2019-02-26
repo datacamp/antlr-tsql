@@ -81,23 +81,22 @@ class SelectStmt(AliasNode):
     def _from_select_rule(cls, node):
         # This node may be a Union
         query_node = node
-        while query_node.query_expression and query_node.isinstance("union_query_expression"):
+        while query_node.query_expression and not query_node.isinstance("Union_query_expression"):
             query_node = query_node.query_expression
 
-        # q_node may be None if there was a parsing error
-        if query_node and query_node.query_specification:
-            query_node = cls.from_spec(query_node)
+        if query_node.query_specification:
+            query_node = cls.from_spec(query_node.query_specification)
 
             # combine with fields from outer node
             outer = cls.from_spec(node)
             for field in cls._fields:
                 value = getattr(outer, field)
                 if value:
-                    setattr(query_node, value)
+                    setattr(query_node, field, value)
 
             return query_node
         else:
-            return node  # TODO
+            return query_node
 
 
 class InsertStmt(AliasNode):
@@ -204,8 +203,10 @@ class FetchStmt(AliasNode):
 # TODO primitive expression
 
 
-class SetStmt(AliasNode):
-    _fields_spec = ["placeholder_do_not_use"]
+# TODO
+# class SetStmt(AliasNode):
+#     _fields_spec = []
+#     _rules = ["set_statement"]
 
 
 class PrintStmt(AliasNode):
