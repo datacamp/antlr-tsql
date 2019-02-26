@@ -738,7 +738,7 @@ predicate
     | left=expression NOT?  op=BETWEEN right+=expression AND right+=expression          #binary_mod_expression
     | left=expression NOT? op=IN '(' (subquery | expression_list) ')'                   #binary_in_expression
     | left=expression NOT?  op=LIKE right+=expression (ESCAPE right+=expression)?       #binary_mod_expression
-    | left=expression op=IS right=null_notnull                                                        #binary_operator_expression2
+    | left=expression op=IS right=null_notnull                                          #binary_operator_expression2
     | '(' search_condition ')'                                                          #bracket_search_expression
 	| DECIMAL                                                                           #decimal_expression
     ;
