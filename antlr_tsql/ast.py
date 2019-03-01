@@ -7,6 +7,7 @@ from antlr_ast.ast import (
     parse as parse_ast,
     process_tree,
     AliasNode,
+    BaseTransformer,
     Speaker,
     # references for export:  # TODO: put package exports in __init__?
     Terminal,
@@ -40,24 +41,6 @@ class Batch(AliasNode):
     _priority = 0
 
 
-# class SqlClauses(AliasNode):
-#     """This helper prevents an unshaped clause from visiting sibling clauses.
-#     This AstNode does not occur in the final ast.
-#     TODO: Inheriting from a helper class can help to classify these helper nodes
-#      helpers like this should be a visitor method, not a node class
-#     """
-#
-#     _rules = [("sql_clauses", "_from_clauses")]
-#
-#     @classmethod
-#     def _from_clauses(cls, visitor, ctx):
-#         child_result = visitor.visitChildren(ctx)
-#         if isinstance(child_result, Unshaped):
-#             if all(isinstance(res, AstNode) for res in child_result.arr):
-#                 child_result = child_result.arr
-#         return child_result
-
-
 class SelectStmt(AliasNode):
     _fields_spec = [
         "pref",
@@ -78,10 +61,10 @@ class SelectStmt(AliasNode):
     _rules = ["query_specification", ("select_statement", "_from_select_rule")]
 
     @classmethod
-    def _from_select_rule(cls, node):
+    def _from_select_rule(cls, node, helper):
         # This node may be a Union
         query_node = node
-        while query_node.query_expression and not query_node.isinstance("Union_query_expression"):
+        while query_node.query_expression and not helper.isinstance(query_node, "Union_query_expression"):
             query_node = query_node.query_expression
 
         if query_node.query_specification:
@@ -471,7 +454,7 @@ class Call(AliasNode):
 # PARSE TREE VISITOR ----------------------------------------------------------
 
 
-class Transformer:
+class Transformer(BaseTransformer):
     def visit_Constant(self, node):
         return node
 
@@ -494,20 +477,9 @@ class Transformer:
     def visit_Table_value_constructor(self, node):
         return node.value_list
 
-# TODO
-# remove_terminal = [
-#     # "select_list",  # simplify_tree
-#     # "bracket_expression",  # simplify_tree
-#     # "subquery_expression",  # simplify_tree
-#     # "bracket_search_expression",  # simplify_tree
-#     # "bracket_query_expression",  # transformer (or simplify_tree)
-#     # "bracket_table_source",  # simplify_tree
-#     # "table_alias",
-#     # "table_value_constructor",
-#     "where_clause_dml",
-#     "declare_set_cursor_common",
-#     # "with_expression",
-# ]
+# TODO: port from remove_terminal:
+#  - "where_clause_dml",
+#  - "declare_set_cursor_common",
 
 
 # Add visit methods to Transformer for all nodes (in _rules) that convert to AliasNode instances
