@@ -7,7 +7,8 @@ from antlr_ast.ast import (
     parse as parse_ast,
     process_tree,
     AliasNode,
-    BaseTransformer,
+    BaseNodeTransformer,
+    get_alias_nodes,
     Speaker,
     # references for export:  # TODO: put package exports in __init__?
     Terminal,
@@ -454,7 +455,7 @@ class Call(AliasNode):
 # PARSE TREE VISITOR ----------------------------------------------------------
 
 
-class Transformer(BaseTransformer):
+class Transformer(BaseNodeTransformer):
     def visit_Constant(self, node):
         return node
 
@@ -484,10 +485,8 @@ class Transformer(BaseTransformer):
 
 # Add visit methods to Transformer for all nodes (in _rules) that convert to AliasNode instances
 
-for item in list(globals().values()):
-    if inspect.isclass(item) and issubclass(item, AliasNode):
-        if getattr(item, "_rules", None) is not None:
-            item.bind_to_transformer(Transformer)
+alias_nodes = get_alias_nodes(globals().values())
+Transformer.bind_alias_nodes(alias_nodes)
 
 
 if __name__ == "__main__":
