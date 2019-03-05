@@ -22,7 +22,7 @@ from . import grammar
 
 def parse(sql_text, start="tsql_file", strict=False):
     antlr_tree = parse_ast(grammar, sql_text, start, strict)
-    simple_tree = process_tree(antlr_tree, Transformer)
+    simple_tree = process_tree(antlr_tree, transformer_cls=Transformer)
 
     return simple_tree
 
