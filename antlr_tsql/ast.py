@@ -456,26 +456,25 @@ class Call(AliasNode):
 
 
 class Transformer(BaseNodeTransformer):
-    def visit_Constant(self, node):
+    @staticmethod
+    def visit_Constant(node):
         return node
 
-    def visit_Sign(self, node):
+    @staticmethod
+    def visit_Sign(node):
         # TODO strip + sign from int?
-        # TODO: cleaner (reuseable helper?) (assignment_operator?)
-        return Terminal(
-            [node.get_text()], {"value": 0}, {}, node._ctx
-        )
+        return Terminal.from_text(node.get_text(), node._ctx)
 
-    def visit_Comparison_operator(self, node):
-        # TODO: cleaner (reuseable helper?) (assignment_operator?)
-        return Terminal(
-            [node.get_text()], {"value": 0}, {}, node._ctx
-        )
+    @staticmethod
+    def visit_Comparison_operator(node):
+        return Terminal.from_text(node.get_text(), node._ctx)
 
-    def visit_With_expression(self, node):
+    @staticmethod
+    def visit_With_expression(node):
         return node.common_table_expression
 
-    def visit_Table_value_constructor(self, node):
+    @staticmethod
+    def visit_Table_value_constructor(node):
         return node.value_list
 
 # TODO: port from remove_terminal:
