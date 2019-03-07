@@ -52,7 +52,6 @@ class SelectStmt(AliasNode):
         "where_clause=where",
         "group_by_clause=group_by_item",
         "having",
-
         "with_expr=with_expression",
         "order_by_clause",
         "for_clause",
@@ -65,7 +64,9 @@ class SelectStmt(AliasNode):
     def _from_select_rule(cls, node, helper):
         # This node may be a Union
         query_node = node
-        while query_node.query_expression and not helper.isinstance(query_node, "Union_query_expression"):
+        while query_node.query_expression and not helper.isinstance(
+            query_node, "Union_query_expression"
+        ):
             query_node = query_node.query_expression
 
         if query_node.query_specification:
@@ -242,7 +243,10 @@ class TableAliasExpr(AliasNode):
 class AliasExpr(AliasNode):
     _fields_spec = ["expr=expression", "alias=table_alias.r_id", "alias=column_alias"]
     _rules = [
-        ("table_source_item_name", "_from_source_table_item"),  # TODO: vs TableAliasExpr?
+        (
+            "table_source_item_name",
+            "_from_source_table_item",
+        ),  # TODO: vs TableAliasExpr?
         ("select_list_elem", "_from_select_list_elem"),
     ]
 
@@ -476,6 +480,7 @@ class Transformer(BaseNodeTransformer):
     @staticmethod
     def visit_Table_value_constructor(node):
         return node.value_list
+
 
 # TODO: port from remove_terminal:
 #  - "where_clause_dml",
