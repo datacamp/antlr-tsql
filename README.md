@@ -81,6 +81,12 @@ docker build -t antlr_tsql .
 docker run -t antlr_tsql make build test
 ```
 
+Or run the test locally, first build the grammar then run:
+
+```python
+pytest
+```
+
 ## Travis deployment
 
 - Builds the Docker image.
