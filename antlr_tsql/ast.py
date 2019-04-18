@@ -15,14 +15,16 @@ from antlr_ast.ast import (
     BaseNode as AstNode,
     AntlrException as ParseError,
     dump_node,  # TODO only used in tests
-)
+    BaseAstVisitor)
 
 from . import grammar
 
 
 def parse(sql_text, start="tsql_file", strict=False):
     antlr_tree = parse_ast(grammar, sql_text, start, strict)
-    simple_tree = process_tree(antlr_tree, transformer_cls=Transformer)
+    simple_tree = process_tree(
+        antlr_tree, base_visitor_cls=AstVisitor, transformer_cls=Transformer
+    )
 
     return simple_tree
 
@@ -491,6 +493,19 @@ class Transformer(BaseNodeTransformer):
 
 alias_nodes = get_alias_nodes(globals().values())
 Transformer.bind_alias_nodes(alias_nodes)
+
+
+class AstVisitor(BaseAstVisitor):
+    def visitTerminal(self, ctx):
+        """Converts case insensitive keywords and identifiers to lowercase
+           Identifiers in quotes are not lowercased even though there is case sensitivity in quotes for identifiers,
+            to prevent lowercasing quoted values.
+        """
+        text = str(super().visitTerminal(ctx))
+        quotes = ["'", '"']
+        if not (text[0] in quotes and text[-1] in quotes):
+            text = text.lower()
+        return Terminal.from_text(text, ctx)
 
 
 if __name__ == "__main__":
