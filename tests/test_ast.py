@@ -26,7 +26,7 @@ def ast_examples_parse(fname):
     import yaml
 
     dirname = os.path.dirname(__file__)
-    data = yaml.load(open(dirname + "/" + fname))
+    data = yaml.safe_load(open(dirname + "/" + fname))
     res = {}
     for start, cmds in data["code"].items():
         res[start] = []
