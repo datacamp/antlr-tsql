@@ -965,6 +965,8 @@ function_call
     | MIN_ACTIVE_ROWVERSION                                             #simple_call
     // https://msdn.microsoft.com/en-us/library/ms177562.aspx
     | NULLIF '(' expression ',' expression ')'                          #standard_call
+    // https://docs.microsoft.com/en-us/sql/t-sql/functions/parse-transact-sql?view=sql-server-2017
+    | PARSE '(' expression AS data_type (USING expression)? ')'         #standard_call
     // https://msdn.microsoft.com/en-us/library/ms177587.aspx
     | SESSION_USER                                                      #simple_call
     // https://msdn.microsoft.com/en-us/library/ms179930.aspx
@@ -1469,6 +1471,8 @@ data_type
     | VARCHAR '(' DECIMAL | MAX ')'
     | XML*/
     : r_id IDENTITY? ('(' (DECIMAL | MAX) (',' DECIMAL)? ')')?
+    | DATE
+    | DATETIME2 '(' DECIMAL ')'
     | DOUBLE PRECISION?
     | INT
     | TINYINT
@@ -1720,10 +1724,12 @@ COUNT:                                 C O U N T;
 COUNT_BIG:                             C O U N T '_' B I G;
 CURSOR_CLOSE_ON_COMMIT:                C U R S O R '_' C L O S E '_' O N '_' C O M M I T;
 CURSOR_DEFAULT:                        C U R S O R '_' D E F A U L T;
+DATE:                                  D A T E;
 DATEADD:                               D A T E A D D;
 DATEDIFF:                              D A T E D I F F;
 DATENAME:                              D A T E N A M E;
 DATEPART:                              D A T E P A R T;
+DATETIME2:                             D A T E T I M E '2';
 DATETIMEOFFSETFROMPARTS:               D A T E T I M E O F F S E T F R O M P A R T S;
 DATE_CORRELATION_OPTIMIZATION:         D A T E '_' C O R R E L A T I O N '_' O P T I M I Z A T I O N;
 DAYS:                                  D A Y S; 
@@ -1821,6 +1827,7 @@ OUTPUT:                                O U T P U T;
 OWNER:                                 O W N E R;
 PAGE_VERIFY:                           P A G E '_' V E R I F Y;
 PARAMETERIZATION:                      P A R A M E T E R I Z A T I O N;
+PARSE:                                 P A R S E;
 PARTITION:                             P A R T I T I O N;
 PATH:                                  P A T H;
 PRECEDING:                             P R E C E D I N G;
