@@ -673,6 +673,8 @@ expression
     | constant                                                 #primitive_expression
     | function_call                                            #function_call_expression
     | expression COLLATE r_id                                    #function_call_expression
+    // https://docs.microsoft.com/en-us/sql/t-sql/queries/at-time-zone-transact-sql?view=sql-server-2017
+    | expression AT TIME ZONE constant_expression              #function_call_expression
     // https://msdn.microsoft.com/en-us/library/ms181765.aspx
     | CASE caseExpr=expression switch_section+ (ELSE elseExpr=expression)? END   #case_expression
     | CASE switch_search_condition_section+ (ELSE elseExpr=expression)? END      #case_expression
@@ -1347,6 +1349,7 @@ simple_id
     | WORK
     | XML
     | XMLNAMESPACES
+    | ZONE
     ;
 
 // https://msdn.microsoft.com/en-us/library/ms188074.aspx
@@ -1687,6 +1690,7 @@ ANSI_PADDING:                          A N S I '_' P A D D I N G;
 ANSI_WARNINGS:                         A N S I '_' W A R N I N G S;
 APPLY:                                 A P P L Y;
 ARITHABORT:                            A R I T H A B O R T;
+AT:                                    A T;
 AUTO:                                  A U T O;
 AUTO_CLEANUP:                          A U T O '_' C L E A N U P; 
 AUTO_CLOSE:                            A U T O '_' C L O S E;
@@ -1888,6 +1892,7 @@ VIEW_METADATA:                         V I E W '_' M E T A D A T A;
 WORK:                                  W O R K;
 XML:                                   X M L;
 XMLNAMESPACES:                         X M L N A M E S P A C E S;
+ZONE:                                  Z O N E;
 
 DOLLAR_ACTION:                         '$' A C T I O N;
 
@@ -1923,7 +1928,7 @@ OR_ASSIGN:           '|=';
 
 DOT:                 '.';
 UNDERLINE:           '_';
-AT:                  '@';
+AT_SIGN:             '@';
 SHARP:               '#';
 DOLLAR:              '$';
 LR_BRACKET:          '(';
