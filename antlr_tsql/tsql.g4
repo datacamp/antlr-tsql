@@ -1240,6 +1240,7 @@ simple_id
     | COOKIE
     | COUNT
     | COUNT_BIG
+    | DATE
     | DELAY
     | DELETED
     | DENSE_RANK
