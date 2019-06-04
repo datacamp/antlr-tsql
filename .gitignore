@@ -84,3 +84,6 @@ antlr_tsql/js/*
 !antlr_tsql/js/index.js
 antlr_tsql/antlr_py/*
 !antlr_tsql/antlr_py/__init__.py
+
+# Pycharm stuff
+.idea/
