@@ -674,7 +674,7 @@ expression
     | function_call                                            #function_call_expression
     | expression COLLATE r_id                                    #function_call_expression
     // https://docs.microsoft.com/en-us/sql/t-sql/queries/at-time-zone-transact-sql?view=sql-server-2017
-    | expression AT TIME ZONE constant_expression              #function_call_expression
+    | expression AT TIME ZONE expression                       #function_call_expression
     // https://msdn.microsoft.com/en-us/library/ms181765.aspx
     | CASE caseExpr=expression switch_section+ (ELSE elseExpr=expression)? END   #case_expression
     | CASE switch_search_condition_section+ (ELSE elseExpr=expression)? END      #case_expression
@@ -971,6 +971,8 @@ function_call
     | SESSION_USER                                                      #simple_call
     // https://msdn.microsoft.com/en-us/library/ms179930.aspx
     | SYSTEM_USER                                                       #simple_call
+    // https://docs.microsoft.com/en-us/sql/t-sql/functions/try-convert-transact-sql?view=sql-server-2017
+    | TRY_CONVERT '(' data_type ',' expression ')'                      #standard_call
     ;
 
 switch_section
