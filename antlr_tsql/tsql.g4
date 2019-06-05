@@ -766,8 +766,21 @@ query_specification
       (WHERE where=search_condition)?
       // https://msdn.microsoft.com/en-us/library/ms177673.aspx
       (GROUP BY group_by_item (',' group_by_item)*)?
+      (group_by_grouping_sets)?
       (WITH (CUBE | ROLLUP))?
       (HAVING having=search_condition)?
+    ;
+
+group_by_grouping_sets
+    : GROUP BY GROUPING SETS '('
+        grouping_set (',' grouping_set)*
+    ')'
+    ;
+
+grouping_set
+    : '('')'
+    | group_by_item
+    | '(' group_by_item (',' group_by_item)* ')'
     ;
 
 top_clause
@@ -1874,6 +1887,7 @@ SCROLL_LOCKS:                          S C R O L L '_' L O C K S;
 SECONDS:                               S E C O N D S;
 SELF:                                  S E L F;
 SERIALIZABLE:                          S E R I A L I Z A B L E;
+SETS:                                  S E T S;
 SHOWPLAN:                              S H O W P L A N;
 SIMPLE:                                S I M P L E;
 SINGLE_USER:                           S I N G L E '_' U S E R; 
