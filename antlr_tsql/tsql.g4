@@ -988,6 +988,8 @@ function_call
     | SYSTEM_USER                                                       #simple_call
     // https://docs.microsoft.com/en-us/sql/t-sql/functions/try-convert-transact-sql?view=sql-server-2017
     | TRY_CONVERT '(' data_type ',' expression ')'                      #standard_call
+    // https://docs.microsoft.com/en-us/sql/t-sql/functions/try-cast-transact-sql?view=sql-server-2017
+    | TRY_CAST '(' expression AS data_type ')'                          #standard_call
     ;
 
 switch_section
@@ -1686,6 +1688,7 @@ TRAN:                                  T R A N;
 TRANSACTION:                           T R A N S A C T I O N;
 TRIGGER:                               T R I G G E R;
 TRUNCATE:                              T R U N C A T E;
+TRY_CAST:                              T R Y '_' C A S T;
 TRY_CONVERT:                           T R Y '_' C O N V E R T;
 TSEQUAL:                               T S E Q U A L;
 UNION:                                 U N I O N;
