@@ -192,7 +192,12 @@ class FetchStmt(AliasNode):
 
 # TODO
 class SetStmt(AliasNode):
-    _fields_spec = []
+    _fields_spec = ['type=set_special.set_type',
+                    'key=set_special.key',
+                    'value=set_special.value',
+                    'value=set_special.constant_LOCAL_ID',
+                    'value=set_special.on_off'
+                    ]
     _rules = ["set_statement"]
 
 

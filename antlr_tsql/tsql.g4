@@ -645,16 +645,16 @@ fetch_cursor
 // https://msdn.microsoft.com/en-us/library/ms190356.aspx
 // Runtime check.
 set_special
-    : SET r_id (r_id | constant_LOCAL_ID | on_off) ';'?
+    : SET key=r_id (value=r_id | constant_LOCAL_ID | on_off) ';'?
     // https://msdn.microsoft.com/en-us/library/ms173763.aspx
-    | SET TRANSACTION ISOLATION LEVEL
+    | SET set_type=TRANSACTION ISOLATION LEVEL
       (READ UNCOMMITTED | READ COMMITTED | REPEATABLE READ | SNAPSHOT | SERIALIZABLE) ';'?
     // https://msdn.microsoft.com/en-us/library/ms188059.aspx
-    | SET IDENTITY_INSERT table_name on_off ';'?
-    | SET ANSI_NULLS on_off
-    | SET QUOTED_IDENTIFIER on_off
-    | SET ANSI_PADDING on_off
-    | SET STATISTICS time_io on_off
+    | SET set_type=IDENTITY_INSERT table_name on_off ';'?
+    | SET set_type=ANSI_NULLS on_off
+    | SET set_type=QUOTED_IDENTIFIER on_off
+    | SET set_type=ANSI_PADDING on_off
+    | SET set_type=STATISTICS time_io on_off
     ;
 
 constant_LOCAL_ID
