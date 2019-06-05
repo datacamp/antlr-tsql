@@ -690,6 +690,7 @@ expression
     | left=expression comparison_operator right=expression                #binary_operator_expression
 
     | over_clause                                              #over_clause_expression
+    | percentile_cont                                          #percentile_cont_expression
     ;
 
 constant_expression
@@ -1434,6 +1435,12 @@ function_option
     | execute_clause
     ;
 
+percentile_cont
+    : PERCENTILE_CONT '(' expression ')'
+        WITHIN GROUP '(' order_by_clause ')'
+        over_clause
+        ;
+
 // New grammar (+ dc: NUMERIC)
 
 // https://msdn.microsoft.com/en-us/library/ms187752.aspx
@@ -1833,6 +1840,7 @@ PARAMETERIZATION:                      P A R A M E T E R I Z A T I O N;
 PARSE:                                 P A R S E;
 PARTITION:                             P A R T I T I O N;
 PATH:                                  P A T H;
+PERCENTILE_CONT:                       P E R C E N T I L E '_' C O N T;
 PRECEDING:                             P R E C E D I N G;
 PRIOR:                                 P R I O R;
 PRIVILEGES:                            P R I V I L E G E S;
