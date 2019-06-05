@@ -766,6 +766,7 @@ query_specification
       (WHERE where=search_condition)?
       // https://msdn.microsoft.com/en-us/library/ms177673.aspx
       (GROUP BY group_by_item (',' group_by_item)*)?
+      (WITH (CUBE | ROLLUP))?
       (HAVING having=search_condition)?
     ;
 
@@ -1732,6 +1733,7 @@ CONTROL:                               C O N T R O L;
 COOKIE:                                C O O K I E;
 COUNT:                                 C O U N T;
 COUNT_BIG:                             C O U N T '_' B I G;
+CUBE:                                  C U B E;
 CURSOR_CLOSE_ON_COMMIT:                C U R S O R '_' C L O S E '_' O N '_' C O M M I T;
 CURSOR_DEFAULT:                        C U R S O R '_' D E F A U L T;
 DATE:                                  D A T E;
@@ -1859,6 +1861,7 @@ REMOTE:                                R E M O T E;
 REPEATABLE:                            R E P E A T A B L E;
 RESTRICTED_USER:                       R E S T R I C T E D '_' U S E R; 
 ROBUST:                                R O B U S T;
+ROLLUP:                                R O L L U P;
 ROOT:                                  R O O T;
 ROW:                                   R O W;
 ROWGUID:                               R O W G U I D;
