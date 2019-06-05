@@ -1063,7 +1063,7 @@ next_value_for_function
 // https://msdn.microsoft.com/en-us/library/ms189798.aspx
 ranking_windowed_function
     : (RANK | DENSE_RANK | ROW_NUMBER) '(' ')' over_clause
-    | (NTILE | FIRST_VALUE | LEAD | LAG) '(' expression ')' over_clause
+    | (NTILE | FIRST_VALUE | LEAD | LAG) '(' expression (',' expression)* ')' over_clause
     ;
 
 // https://msdn.microsoft.com/en-us/library/ms173454.aspx
