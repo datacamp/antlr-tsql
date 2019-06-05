@@ -654,6 +654,7 @@ set_special
     | SET ANSI_NULLS on_off
     | SET QUOTED_IDENTIFIER on_off
     | SET ANSI_PADDING on_off
+    | SET STATISTICS time_io on_off
     ;
 
 constant_LOCAL_ID
@@ -1199,6 +1200,11 @@ on_off
     | OFF
     ;
 
+time_io
+    : TIME
+    | IO
+    ;
+
 clustered
     : CLUSTERED
     | NONCLUSTERED
@@ -1244,6 +1250,7 @@ r_id
 
 simple_id
     : ID
+    | IO
     | ABSOLUTE
     | APPLY
     | AUTO
@@ -1811,6 +1818,7 @@ INT:                                   I N T;
 INSENSITIVE:                           I N S E N S I T I V E;
 INSERTED:                              I N S E R T E D;
 ISOLATION:                             I S O L A T I O N;
+IO:                                    I O;
 KB:                                    K B;
 KEEP:                                  K E E P;
 KEEPFIXED:                             K E E P F I X E D;
