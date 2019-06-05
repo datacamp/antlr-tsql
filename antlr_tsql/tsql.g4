@@ -990,6 +990,8 @@ function_call
     | TRY_CONVERT '(' data_type ',' expression ')'                      #standard_call
     // https://docs.microsoft.com/en-us/sql/t-sql/functions/try-cast-transact-sql?view=sql-server-2017
     | TRY_CAST '(' expression AS data_type ')'                          #standard_call
+    // https://docs.microsoft.com/en-us/sql/t-sql/functions/try-parse-transact-sql?view=sql-server-2017
+    | TRY_PARSE '(' expression AS data_type (USING expression)? ')'     #standard_call
     ;
 
 switch_section
@@ -1690,6 +1692,7 @@ TRIGGER:                               T R I G G E R;
 TRUNCATE:                              T R U N C A T E;
 TRY_CAST:                              T R Y '_' C A S T;
 TRY_CONVERT:                           T R Y '_' C O N V E R T;
+TRY_PARSE:                             T R Y '_' P A R S E;
 TSEQUAL:                               T S E Q U A L;
 UNION:                                 U N I O N;
 UNIQUE:                                U N I Q U E;
