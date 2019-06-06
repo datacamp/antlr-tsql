@@ -982,7 +982,7 @@ function_call
     // https://msdn.microsoft.com/en-us/library/ms177562.aspx
     | NULLIF '(' expression ',' expression ')'                          #standard_call
     // https://docs.microsoft.com/en-us/sql/t-sql/functions/parse-transact-sql?view=sql-server-2017
-    | PARSE '(' expression AS data_type (USING expression)? ')'         #standard_call
+    | PARSE '(' left=expression AS alias=data_type (USING right=expression)? ')'   #expression_call
     // https://msdn.microsoft.com/en-us/library/ms177587.aspx
     | SESSION_USER                                                      #simple_call
     // https://msdn.microsoft.com/en-us/library/ms179930.aspx
@@ -990,9 +990,9 @@ function_call
     // https://docs.microsoft.com/en-us/sql/t-sql/functions/try-convert-transact-sql?view=sql-server-2017
     | TRY_CONVERT '(' data_type ',' expression ')'                      #standard_call
     // https://docs.microsoft.com/en-us/sql/t-sql/functions/try-cast-transact-sql?view=sql-server-2017
-    | TRY_CAST '(' expression AS data_type ')'                          #standard_call
+    | TRY_CAST '(' expression AS alias=data_type ')'                          #cast_call
     // https://docs.microsoft.com/en-us/sql/t-sql/functions/try-parse-transact-sql?view=sql-server-2017
-    | TRY_PARSE '(' expression AS data_type (USING expression)? ')'     #standard_call
+    | TRY_PARSE '(' left=expression AS alias=data_type (USING right=expression)? ')'     #expression_call
     ;
 
 switch_section

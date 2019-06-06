@@ -345,6 +345,13 @@ class TimeZoneConversion(AliasNode):
     _rules = ["conversion_expression"]
 
 
+"""
+class ExpressionArgument(AliasNode):
+    _fields_spec = []
+    _rules = ["expression_argument"]
+"""
+
+
 class JoinExpr(AliasNode):
     _fields_spec = [
         "left",
@@ -412,6 +419,7 @@ class Call(AliasNode):
         "args=expression_list",
         "args=expression",
         "over_clause",
+        "using"
     ]
 
     _rules = [
@@ -421,6 +429,7 @@ class Call(AliasNode):
         ("ranking_windowed_function", "_from_aggregate"),
         ("next_value_for_function", "_from_aggregate"),
         ("cast_call", "_from_cast"),
+        ("expression_call", "_from_expression"),
     ]
 
     @classmethod
@@ -471,6 +480,19 @@ class Call(AliasNode):
                     AliasExpr(node, {"expr": node.expression, "alias": node.alias})
                 ],
             },
+        )
+
+    @classmethod
+    def _from_expression(cls, node):
+        return cls(
+            node,
+            {
+                "name": cls.get_name(node),
+                "args": [
+                    AliasExpr(node, {"expr": node.left, "alias": node.alias})
+                ],
+                "using": node.right
+            }
         )
 
 
