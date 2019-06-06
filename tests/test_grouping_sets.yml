@@ -1,0 +1,11 @@
+parser_name: tsql
+code:
+    select_statement:
+        - "SELECT *
+           GROUP BY GROUPING SETS
+           (
+           	(c.CalendarMonth, c.CalendarQuarterName, c.CalendarYear),
+           	(c.CalendarYear),
+               -- This remains blank; it gives us the grand total
+           	()
+           );"
