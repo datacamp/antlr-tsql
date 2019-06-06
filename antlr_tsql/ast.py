@@ -58,6 +58,7 @@ class SelectStmt(AliasNode):
         "order_by_clause",
         "for_clause",
         "option_clause",
+        "group_by_grouping_sets"
     ]
 
     _rules = ["query_specification", ("select_statement", "_from_select_rule")]
@@ -327,6 +328,11 @@ class TopExpr(AliasNode):
 class OrderByExpr(AliasNode):
     _fields_spec = ["expr=order_by_expression", "offset", "fetch=fetch_expression"]
     _rules = ["order_by_clause"]
+
+
+class GroupByGroupingSets(AliasNode):
+    _fields_spec = ["grouping_set"]
+    _rules = ["group_by_grouping_sets"]
 
 
 class SortBy(AliasNode):
