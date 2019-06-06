@@ -675,7 +675,7 @@ expression
     | function_call                                            #function_call_expression
     | expression COLLATE r_id                                    #function_call_expression
     // https://docs.microsoft.com/en-us/sql/t-sql/queries/at-time-zone-transact-sql?view=sql-server-2017
-    | expression AT TIME ZONE expression                       #function_call_expression
+    | left=expression AT TIME ZONE right=expression                       #conversion_expression
     // https://msdn.microsoft.com/en-us/library/ms181765.aspx
     | CASE caseExpr=expression switch_section+ (ELSE elseExpr=expression)? END   #case_expression
     | CASE switch_search_condition_section+ (ELSE elseExpr=expression)? END      #case_expression

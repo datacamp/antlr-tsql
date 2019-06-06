@@ -340,6 +340,11 @@ class SortBy(AliasNode):
     _rules = ["order_by_expression"]
 
 
+class TimeZoneConversion(AliasNode):
+    _fields_spec = ["expr=left", "timezone=right"]
+    _rules = ["conversion_expression"]
+
+
 class JoinExpr(AliasNode):
     _fields_spec = [
         "left",
