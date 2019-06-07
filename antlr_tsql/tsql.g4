@@ -654,7 +654,7 @@ set_special
     | SET set_type=ANSI_NULLS on_off
     | SET set_type=QUOTED_IDENTIFIER on_off
     | SET set_type=ANSI_PADDING on_off
-    | SET set_type=STATISTICS time_io on_off
+    | SET set_type=STATISTICS (TIME | IO) on_off
     ;
 
 constant_LOCAL_ID
@@ -1068,7 +1068,8 @@ next_value_for_function
 // https://msdn.microsoft.com/en-us/library/ms189798.aspx
 ranking_windowed_function
     : (RANK | DENSE_RANK | ROW_NUMBER) '(' ')' over_clause
-    | (NTILE | FIRST_VALUE | LEAD | LAG) '(' expression (',' expression)* ')' over_clause
+    | (NTILE | FIRST_VALUE) '(' expression ')' over_clause
+    | (LEAD | LAG) '(' expression (',' expression)* ')' over_clause
     ;
 
 // https://msdn.microsoft.com/en-us/library/ms173454.aspx
@@ -1198,11 +1199,6 @@ cursor_name
 on_off
     : ON
     | OFF
-    ;
-
-time_io
-    : TIME
-    | IO
     ;
 
 clustered
