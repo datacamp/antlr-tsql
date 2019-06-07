@@ -58,6 +58,7 @@ class SelectStmt(AliasNode):
         "order_by_clause",
         "for_clause",
         "option_clause",
+        "group_by_grouping_sets"
     ]
 
     _rules = ["query_specification", ("select_statement", "_from_select_rule")]
@@ -192,7 +193,12 @@ class FetchStmt(AliasNode):
 
 # TODO
 class SetStmt(AliasNode):
-    _fields_spec = []
+    _fields_spec = ['type=set_special.set_type',
+                    'key=set_special.key',
+                    'value=set_special.value',
+                    'value=set_special.constant_LOCAL_ID',
+                    'value=set_special.on_off'
+                    ]
     _rules = ["set_statement"]
 
 
@@ -324,9 +330,26 @@ class OrderByExpr(AliasNode):
     _rules = ["order_by_clause"]
 
 
+class GroupByGroupingSets(AliasNode):
+    _fields_spec = ["grouping_set"]
+    _rules = ["group_by_grouping_sets"]
+
+
 class SortBy(AliasNode):
     _fields_spec = ["expr=expression", "direction"]
     _rules = ["order_by_expression"]
+
+
+class TimeZoneConversion(AliasNode):
+    _fields_spec = ["expr=left", "timezone=right"]
+    _rules = ["conversion_expression"]
+
+
+"""
+class ExpressionArgument(AliasNode):
+    _fields_spec = []
+    _rules = ["expression_argument"]
+"""
 
 
 class JoinExpr(AliasNode):
@@ -396,6 +419,7 @@ class Call(AliasNode):
         "args=expression_list",
         "args=expression",
         "over_clause",
+        "using"
     ]
 
     _rules = [
@@ -405,6 +429,7 @@ class Call(AliasNode):
         ("ranking_windowed_function", "_from_aggregate"),
         ("next_value_for_function", "_from_aggregate"),
         ("cast_call", "_from_cast"),
+        ("expression_call", "_from_expression"),
     ]
 
     @classmethod
@@ -455,6 +480,19 @@ class Call(AliasNode):
                     AliasExpr(node, {"expr": node.expression, "alias": node.alias})
                 ],
             },
+        )
+
+    @classmethod
+    def _from_expression(cls, node):
+        return cls(
+            node,
+            {
+                "name": cls.get_name(node),
+                "args": [
+                    AliasExpr(node, {"expr": node.left, "alias": node.alias})
+                ],
+                "using": node.right
+            }
         )
 
 

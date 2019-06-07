@@ -645,15 +645,16 @@ fetch_cursor
 // https://msdn.microsoft.com/en-us/library/ms190356.aspx
 // Runtime check.
 set_special
-    : SET r_id (r_id | constant_LOCAL_ID | on_off) ';'?
+    : SET key=r_id (value=r_id | constant_LOCAL_ID | on_off) ';'?
     // https://msdn.microsoft.com/en-us/library/ms173763.aspx
-    | SET TRANSACTION ISOLATION LEVEL
+    | SET set_type=TRANSACTION ISOLATION LEVEL
       (READ UNCOMMITTED | READ COMMITTED | REPEATABLE READ | SNAPSHOT | SERIALIZABLE) ';'?
     // https://msdn.microsoft.com/en-us/library/ms188059.aspx
-    | SET IDENTITY_INSERT table_name on_off ';'?
-    | SET ANSI_NULLS on_off
-    | SET QUOTED_IDENTIFIER on_off
-    | SET ANSI_PADDING on_off
+    | SET set_type=IDENTITY_INSERT table_name on_off ';'?
+    | SET set_type=ANSI_NULLS on_off
+    | SET set_type=QUOTED_IDENTIFIER on_off
+    | SET set_type=ANSI_PADDING on_off
+    | SET set_type=STATISTICS time_io on_off
     ;
 
 constant_LOCAL_ID
@@ -673,6 +674,8 @@ expression
     | constant                                                 #primitive_expression
     | function_call                                            #function_call_expression
     | expression COLLATE r_id                                    #function_call_expression
+    // https://docs.microsoft.com/en-us/sql/t-sql/queries/at-time-zone-transact-sql?view=sql-server-2017
+    | left=expression AT TIME ZONE right=expression                       #conversion_expression
     // https://msdn.microsoft.com/en-us/library/ms181765.aspx
     | CASE caseExpr=expression switch_section+ (ELSE elseExpr=expression)? END   #case_expression
     | CASE switch_search_condition_section+ (ELSE elseExpr=expression)? END      #case_expression
@@ -688,6 +691,7 @@ expression
     | left=expression comparison_operator right=expression                #binary_operator_expression
 
     | over_clause                                              #over_clause_expression
+    | percentile_cont                                          #percentile_cont_expression
     ;
 
 constant_expression
@@ -763,7 +767,21 @@ query_specification
       (WHERE where=search_condition)?
       // https://msdn.microsoft.com/en-us/library/ms177673.aspx
       (GROUP BY group_by_item (',' group_by_item)*)?
+      (group_by_grouping_sets)?
+      (WITH (CUBE | ROLLUP))?
       (HAVING having=search_condition)?
+    ;
+
+group_by_grouping_sets
+    : GROUP BY GROUPING SETS '('
+        grouping_set (',' grouping_set)*
+    ')'
+    ;
+
+grouping_set
+    : '('')'
+    | group_by_item
+    | '(' group_by_item (',' group_by_item)* ')'
     ;
 
 top_clause
@@ -953,6 +971,8 @@ function_call
     | DATENAME '(' ID ',' expression ')'                                #standard_call
     // https://msdn.microsoft.com/en-us/library/ms174420.aspx
     | DATEPART '(' ID ',' expression ')'                                #standard_call
+    // https://docs.microsoft.com/en-us/sql/t-sql/functions/datetimeoffsetfromparts-transact-sql?view=sql-server-2017
+    | DATETIMEOFFSETFROMPARTS '(' expression ',' expression ',' expression ',' expression ',' expression ',' expression ',' expression ',' expression ',' expression ',' expression ')'  #standard_call
     // https://msdn.microsoft.com/en-us/library/ms189838.aspx
     | IDENTITY '(' data_type (',' seed=DECIMAL)? (',' increment=DECIMAL)? ')' #standard_call
     // https://docs.microsoft.com/en-us/sql/t-sql/functions/logical-functions-iif-transact-sql
@@ -961,10 +981,18 @@ function_call
     | MIN_ACTIVE_ROWVERSION                                             #simple_call
     // https://msdn.microsoft.com/en-us/library/ms177562.aspx
     | NULLIF '(' expression ',' expression ')'                          #standard_call
+    // https://docs.microsoft.com/en-us/sql/t-sql/functions/parse-transact-sql?view=sql-server-2017
+    | PARSE '(' left=expression AS alias=data_type (USING right=expression)? ')'   #expression_call
     // https://msdn.microsoft.com/en-us/library/ms177587.aspx
     | SESSION_USER                                                      #simple_call
     // https://msdn.microsoft.com/en-us/library/ms179930.aspx
     | SYSTEM_USER                                                       #simple_call
+    // https://docs.microsoft.com/en-us/sql/t-sql/functions/try-convert-transact-sql?view=sql-server-2017
+    | TRY_CONVERT '(' data_type ',' expression ')'                      #standard_call
+    // https://docs.microsoft.com/en-us/sql/t-sql/functions/try-cast-transact-sql?view=sql-server-2017
+    | TRY_CAST '(' expression AS alias=data_type ')'                          #cast_call
+    // https://docs.microsoft.com/en-us/sql/t-sql/functions/try-parse-transact-sql?view=sql-server-2017
+    | TRY_PARSE '(' left=expression AS alias=data_type (USING right=expression)? ')'     #expression_call
     ;
 
 switch_section
@@ -1040,7 +1068,7 @@ next_value_for_function
 // https://msdn.microsoft.com/en-us/library/ms189798.aspx
 ranking_windowed_function
     : (RANK | DENSE_RANK | ROW_NUMBER) '(' ')' over_clause
-    | (NTILE | FIRST_VALUE | LEAD | LAG) '(' expression ')' over_clause
+    | (NTILE | FIRST_VALUE | LEAD | LAG) '(' expression (',' expression)* ')' over_clause
     ;
 
 // https://msdn.microsoft.com/en-us/library/ms173454.aspx
@@ -1172,6 +1200,11 @@ on_off
     | OFF
     ;
 
+time_io
+    : TIME
+    | IO
+    ;
+
 clustered
     : CLUSTERED
     | NONCLUSTERED
@@ -1217,6 +1250,7 @@ r_id
 
 simple_id
     : ID
+    | IO
     | ABSOLUTE
     | APPLY
     | AUTO
@@ -1232,6 +1266,7 @@ simple_id
     | COOKIE
     | COUNT
     | COUNT_BIG
+    | DATE
     | DELAY
     | DELETED
     | DENSE_RANK
@@ -1345,6 +1380,7 @@ simple_id
     | WORK
     | XML
     | XMLNAMESPACES
+    | ZONE
     ;
 
 // https://msdn.microsoft.com/en-us/library/ms188074.aspx
@@ -1424,6 +1460,12 @@ function_option
     | execute_clause
     ;
 
+percentile_cont
+    : PERCENTILE_CONT '(' expression ')'
+        WITHIN GROUP '(' order_by_clause ')'
+        over_clause
+        ;
+
 // New grammar (+ dc: NUMERIC)
 
 // https://msdn.microsoft.com/en-us/library/ms187752.aspx
@@ -1464,6 +1506,8 @@ data_type
     | VARCHAR '(' DECIMAL | MAX ')'
     | XML*/
     : r_id IDENTITY? ('(' (DECIMAL | MAX) (',' DECIMAL)? ')')?
+    | DATE
+    | DATETIME2 '(' DECIMAL ')'
     | DOUBLE PRECISION?
     | INT
     | TINYINT
@@ -1653,7 +1697,9 @@ TRAN:                                  T R A N;
 TRANSACTION:                           T R A N S A C T I O N;
 TRIGGER:                               T R I G G E R;
 TRUNCATE:                              T R U N C A T E;
+TRY_CAST:                              T R Y '_' C A S T;
 TRY_CONVERT:                           T R Y '_' C O N V E R T;
+TRY_PARSE:                             T R Y '_' P A R S E;
 TSEQUAL:                               T S E Q U A L;
 UNION:                                 U N I O N;
 UNIQUE:                                U N I Q U E;
@@ -1685,6 +1731,7 @@ ANSI_PADDING:                          A N S I '_' P A D D I N G;
 ANSI_WARNINGS:                         A N S I '_' W A R N I N G S;
 APPLY:                                 A P P L Y;
 ARITHABORT:                            A R I T H A B O R T;
+AT:                                    A T;
 AUTO:                                  A U T O;
 AUTO_CLEANUP:                          A U T O '_' C L E A N U P; 
 AUTO_CLOSE:                            A U T O '_' C L O S E;
@@ -1712,12 +1759,16 @@ CONTROL:                               C O N T R O L;
 COOKIE:                                C O O K I E;
 COUNT:                                 C O U N T;
 COUNT_BIG:                             C O U N T '_' B I G;
+CUBE:                                  C U B E;
 CURSOR_CLOSE_ON_COMMIT:                C U R S O R '_' C L O S E '_' O N '_' C O M M I T;
 CURSOR_DEFAULT:                        C U R S O R '_' D E F A U L T;
+DATE:                                  D A T E;
 DATEADD:                               D A T E A D D;
 DATEDIFF:                              D A T E D I F F;
 DATENAME:                              D A T E N A M E;
 DATEPART:                              D A T E P A R T;
+DATETIME2:                             D A T E T I M E '2';
+DATETIMEOFFSETFROMPARTS:               D A T E T I M E O F F S E T F R O M P A R T S;
 DATE_CORRELATION_OPTIMIZATION:         D A T E '_' C O R R E L A T I O N '_' O P T I M I Z A T I O N;
 DAYS:                                  D A Y S; 
 DB_CHAINING:                           D B '_' C H A I N I N G;
@@ -1767,6 +1818,7 @@ INT:                                   I N T;
 INSENSITIVE:                           I N S E N S I T I V E;
 INSERTED:                              I N S E R T E D;
 ISOLATION:                             I S O L A T I O N;
+IO:                                    I O;
 KB:                                    K B;
 KEEP:                                  K E E P;
 KEEPFIXED:                             K E E P F I X E D;
@@ -1814,8 +1866,10 @@ OUTPUT:                                O U T P U T;
 OWNER:                                 O W N E R;
 PAGE_VERIFY:                           P A G E '_' V E R I F Y;
 PARAMETERIZATION:                      P A R A M E T E R I Z A T I O N;
+PARSE:                                 P A R S E;
 PARTITION:                             P A R T I T I O N;
 PATH:                                  P A T H;
+PERCENTILE_CONT:                       P E R C E N T I L E '_' C O N T;
 PRECEDING:                             P R E C E D I N G;
 PRIOR:                                 P R I O R;
 PRIVILEGES:                            P R I V I L E G E S;
@@ -1834,6 +1888,7 @@ REMOTE:                                R E M O T E;
 REPEATABLE:                            R E P E A T A B L E;
 RESTRICTED_USER:                       R E S T R I C T E D '_' U S E R; 
 ROBUST:                                R O B U S T;
+ROLLUP:                                R O L L U P;
 ROOT:                                  R O O T;
 ROW:                                   R O W;
 ROWGUID:                               R O W G U I D;
@@ -1846,6 +1901,7 @@ SCROLL_LOCKS:                          S C R O L L '_' L O C K S;
 SECONDS:                               S E C O N D S;
 SELF:                                  S E L F;
 SERIALIZABLE:                          S E R I A L I Z A B L E;
+SETS:                                  S E T S;
 SHOWPLAN:                              S H O W P L A N;
 SIMPLE:                                S I M P L E;
 SINGLE_USER:                           S I N G L E '_' U S E R; 
@@ -1885,6 +1941,7 @@ VIEW_METADATA:                         V I E W '_' M E T A D A T A;
 WORK:                                  W O R K;
 XML:                                   X M L;
 XMLNAMESPACES:                         X M L N A M E S P A C E S;
+ZONE:                                  Z O N E;
 
 DOLLAR_ACTION:                         '$' A C T I O N;
 
@@ -1920,7 +1977,7 @@ OR_ASSIGN:           '|=';
 
 DOT:                 '.';
 UNDERLINE:           '_';
-AT:                  '@';
+AT_SIGN:             '@';
 SHARP:               '#';
 DOLLAR:              '$';
 LR_BRACKET:          '(';

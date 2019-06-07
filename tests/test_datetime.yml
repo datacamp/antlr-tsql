@@ -1,0 +1,6 @@
+parser_name: tsql
+code:
+    select_statement:
+        - "SELECT DATETIMEOFFSETFROMPARTS(2038, 01, 19, 03, 14, 08, 0, 0, 0, 3);"
+        - "SELECT DATETIMEOFFSETFROMPARTS(2038, 01, 19, 03, 14, 08, 0, 0, 0, 3) AS TimeForChaos;"
+        - "SELECT DATETIMEOFFSETFROMPARTS(2038, 01, 19, 03, 14, 08, 0, 0, 0, 3) AT TIME ZONE 'Eastern Standard Time' AS TimeForChaos;"
