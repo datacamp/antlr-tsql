@@ -345,13 +345,6 @@ class TimeZoneConversion(AliasNode):
     _rules = ["conversion_expression"]
 
 
-"""
-class ExpressionArgument(AliasNode):
-    _fields_spec = []
-    _rules = ["expression_argument"]
-"""
-
-
 class JoinExpr(AliasNode):
     _fields_spec = [
         "left",
