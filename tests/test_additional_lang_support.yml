@@ -1,0 +1,12 @@
+parser_name: tsql
+code:
+    select_statement:
+        - "SELECT STRING_AGG(bean_origin, ',') WITHIN GROUP (ORDER BY bean_origin) AS bean_origins
+           FROM ratings;"
+        - "SELECT value
+           FROM STRING_SPLIT(@phrase, '.');"
+        - "SELECT
+           LAST_VALUE(birthdate)
+           OVER (PARTITION BY country ORDER BY birthdate ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING
+           ) AS youngest_voter
+           FROM voters;"
