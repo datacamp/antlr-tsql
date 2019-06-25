@@ -25,7 +25,8 @@ def load_dump(fname):
         *load_dump(ast_examples_parse("v0.4.yml")),
         *load_dump(ast_examples_parse("test_datetime.yml")),
         *load_dump(ast_examples_parse("test_parser_convert.yml")),
-        *load_dump(ast_examples_parse("test_grouping_sets.yml"))
+        *load_dump(ast_examples_parse("test_grouping_sets.yml")),
+        *load_dump(ast_examples_parse("test_additional_lang_support.yml"))
     ],
 )
 def test_dump(start, cmd, res):

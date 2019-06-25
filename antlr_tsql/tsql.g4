@@ -692,6 +692,7 @@ expression
 
     | over_clause                                              #over_clause_expression
     | percentile_cont                                          #percentile_cont_expression
+    | string_agg                                               #string_agg_expression
     ;
 
 constant_expression
@@ -985,6 +986,8 @@ function_call
     | PARSE '(' left=expression AS alias=data_type (USING right=expression)? ')'   #expression_call
     // https://msdn.microsoft.com/en-us/library/ms177587.aspx
     | SESSION_USER                                                      #simple_call
+    // https://docs.microsoft.com/en-us/sql/t-sql/functions/string-split-transact-sql?view=sql-server-2017
+    | STRING_SPLIT '(' expression ',' expression ')'                    #standard_call
     // https://msdn.microsoft.com/en-us/library/ms179930.aspx
     | SYSTEM_USER                                                       #simple_call
     // https://docs.microsoft.com/en-us/sql/t-sql/functions/try-convert-transact-sql?view=sql-server-2017
@@ -1068,7 +1071,7 @@ next_value_for_function
 // https://msdn.microsoft.com/en-us/library/ms189798.aspx
 ranking_windowed_function
     : (RANK | DENSE_RANK | ROW_NUMBER) '(' ')' over_clause
-    | (NTILE | FIRST_VALUE) '(' expression ')' over_clause
+    | (NTILE | FIRST_VALUE | LAST_VALUE) '(' expression ')' over_clause
     | (LEAD | LAG) '(' expression (',' expression)* ')' over_clause
     ;
 
@@ -1295,6 +1298,7 @@ simple_id
     | IGNORE_NONCLUSTERED_COLUMNSTORE_INDEX
     | LAG
     | LAST
+    | LAST_VALUE
     | LEAD
     | LEVEL
     | LOCAL
@@ -1371,6 +1375,7 @@ simple_id
     | USING
     | VAR
     | VARP
+    | VALUE
     | VIEW_METADATA
     | VIEWS
     | WORK
@@ -1461,6 +1466,11 @@ percentile_cont
         WITHIN GROUP '(' order_by_clause ')'
         over_clause
         ;
+
+string_agg
+    : STRING_AGG '(' expression ',' expression ')'
+        WITHIN GROUP '(' order_by_clause ')'
+    ;
 
 // New grammar (+ dc: NUMERIC)
 
@@ -1821,6 +1831,7 @@ KEEPFIXED:                             K E E P F I X E D;
 KEYSET:                                K E Y S E T;
 LAG:                                   L A G;
 LAST:                                  L A S T;
+LAST_VALUE:                            L A S T '_' V A L U E;
 LEAD:                                  L E A D;
 LEVEL:                                 L E V E L;
 LOCAL:                                 L O C A L;
@@ -1909,6 +1920,8 @@ STATIC:                                S T A T I C;
 STATS_STREAM:                          S T A T S '_' S T R E A M;
 STDEV:                                 S T D E V;
 STDEVP:                                S T D E V P;
+STRING_AGG:                            S T R I N G '_' A G G;
+STRING_SPLIT:                          S T R I N G '_' S P L I T;
 SUM:                                   S U M;
 TAKE:                                  T A K E;
 TARGET_RECOVERY_TIME:                  T A R G E T '_' R E C O V E R Y '_' T I M E;
