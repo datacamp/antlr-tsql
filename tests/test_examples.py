@@ -8,7 +8,7 @@ def load_dump(fname):
     import yaml
 
     dirname = os.path.dirname(__file__)
-    dump_data = yaml.load(open(dirname + "/" + fname))
+    dump_data = yaml.safe_load(open(dirname + "/" + fname))
 
     all_cmds = []
     for start, cmds in dump_data.items():
@@ -23,6 +23,10 @@ def load_dump(fname):
         *load_dump(ast_examples_parse("visual_checks.yml")),
         *load_dump(ast_examples_parse("v0.3.yml")),
         *load_dump(ast_examples_parse("v0.4.yml")),
+        *load_dump(ast_examples_parse("test_datetime.yml")),
+        *load_dump(ast_examples_parse("test_parser_convert.yml")),
+        *load_dump(ast_examples_parse("test_grouping_sets.yml")),
+        *load_dump(ast_examples_parse("test_additional_lang_support.yml"))
     ],
 )
 def test_dump(start, cmd, res):

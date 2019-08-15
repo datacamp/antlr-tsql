@@ -1,0 +1,13 @@
+parser_name: tsql
+code:
+    select_statement:
+        - "SELECT PARSE(DateText AS DATE USING 'de-de');"
+        - "SELECT PARSE(DateText AS DATE USING 'de-de') AS StringAsDate;"
+        - "SELECT PARSE(DateText AS DATETIME2(7) USING 'de-de') AS StringAsDateTime2;"
+        - "SELECT TRY_CONVERT(DATETIME2(3), it.EventDate);"
+        - "SELECT PERCENTILE_CONT(0.5)
+                   WITHIN GROUP (ORDER BY ir.NumberOfIncidents DESC)
+                   OVER (PARTITION BY it.IncidentType)"
+        - "SELECT TRY_CONVERT(DATETIME2(3), @GoodDateINTL);"
+        - "SELECT TRY_CAST(@GoodDateDE AS DATE);"
+        - "SELECT TRY_PARSE(@GoodDateDE AS DATE USING 'de-de');"

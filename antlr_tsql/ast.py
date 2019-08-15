@@ -1,180 +1,189 @@
-from antlr4.tree import Tree
-
-import antlr_ast
-from antlr_ast import AstNode
-
-from . import tsql_grammar
-
-
-def parse(sql_text, start='tsql_file', strict=False):
-    return antlr_ast.parse(tsql_grammar, AstVisitor(), sql_text, start, strict)
-
-
+# TODO: create speaker
 import yaml
-def parse_from_yaml(fname):
-    data = yaml.load(open(fname)) if isinstance(fname, str) else fname
-    out = {}
-    for start, cmds in data.items():
-        out[start] = [parse(cmd, start) for cmd in cmds]
-    return out
+import pkg_resources
+import inspect
+
+from antlr_ast.ast import (
+    parse as parse_ast,
+    process_tree,
+    AliasNode,
+    BaseNodeTransformer,
+    get_alias_nodes,
+    Speaker,
+    # references for export:  # TODO: put package exports in __init__?
+    Terminal,
+    BaseNode as AstNode,
+    AntlrException as ParseError,
+    dump_node,  # TODO only used in tests
+    BaseAstVisitor)
+
+from . import grammar
 
 
-class Unshaped(AstNode):
-    _fields = ['arr']
+def parse(sql_text, start="tsql_file", strict=False):
+    antlr_tree = parse_ast(grammar, sql_text, start, strict)
+    simple_tree = process_tree(
+        antlr_tree, base_visitor_cls=AstVisitor, transformer_cls=Transformer
+    )
 
-    def __init__(self, ctx, arr=tuple()):
-        self.arr = arr
-        self._ctx = ctx
+    return simple_tree
 
 
-class Script(AstNode):
-    _fields = ['batch']
+# AliasNodes
+
+
+class Script(AliasNode):
+    _fields_spec = ["batch"]
+    _rules = ["tsql_file"]
     _priority = 0
-    _rules = ['tsql_file']
 
 
-class Batch(AstNode):
-    _fields = ['sql_clauses->statements']
+class Batch(AliasNode):
+    _fields_spec = ["statements=sql_clauses"]
+    _rules = ["batch"]
     _priority = 0
-    _rules = ['batch']
 
 
-class SqlClauses(AstNode):
-    """This helper prevents an unshaped clause from visiting sibling clauses.
-    This AstNode does not occur in the final ast.
-    TODO: Inheriting from a helper class can help to classify these helper nodes
-    """
-    _rules = [('sql_clauses', '_from_clauses')]
+class SelectStmt(AliasNode):
+    _fields_spec = [
+        "pref",
+        "target_list=select_list",
+        "top_clause",
+        "into_clause=table_name",
+        "from_clause=table_sources",
+        "where_clause=where",
+        "group_by_clause=group_by_item",
+        "having",
+        "with_expr=with_expression",
+        "order_by_clause",
+        "for_clause",
+        "option_clause",
+        "group_by_grouping_sets"
+    ]
+
+    _rules = ["query_specification", ("select_statement", "_from_select_rule")]
 
     @classmethod
-    def _from_clauses(cls, visitor, ctx):
-        child_result = visitor.visitChildren(ctx)
-        if isinstance(child_result, Unshaped):
-            child_result = child_result.arr
-        return child_result
-
-
-class SelectStmt(AstNode):
-    _fields = ['pref',
-               'select_list->target_list',
-               'top_clause',
-               'table_name->into_clause', 
-               'table_sources->from_clause', 
-               'where->where_clause',
-               'group_by_item->group_by_clause', 
-               'having']
-
-    _rules = ['query_specification',
-              ('select_statement', '_from_select_rule')]
-
-    @classmethod
-    def _from_select_rule(cls, visitor, ctx):
-        fields = ['with_expression->with_expr', 
-                  'order_by_clause', 'for_clause', 'option_clause']
-        
+    def _from_select_rule(cls, node, helper):
         # This node may be a Union
-        q_node = visitor.visit(ctx.query_expression())
-        # q_node may be None if there was a parsing error
-        if q_node:
-            outer_sel = cls._from_fields(visitor, ctx, fields)
+        query_node = node
+        while query_node.query_expression and not helper.isinstance(
+            query_node, "Union_query_expression"
+        ):
+            query_node = query_node.query_expression
 
-            for k in [el.split('->')[-1] for el in fields]:
-                attr = getattr(outer_sel, k, None)
-                if attr is not None: setattr(q_node, k, attr)
+        if query_node.query_specification:
+            query_node = cls.from_spec(query_node.query_specification)
 
-            q_node._fields = q_node._fields + fields
+            # combine with fields from outer node
+            outer = cls.from_spec(node)
+            for field in cls._fields:
+                value = getattr(outer, field)
+                if value:
+                    setattr(query_node, field, value)
 
-            return q_node
-        else: return visitor.visitChildren(ctx)
-
-
-class InsertStmt(AstNode):
-    _fields = ['with_expression->with_expr', 'top_clause_dm->top_clause', 
-               'INTO->into',
-               'ddl_object->target', 'rowset_function_limited->target',    # TODO make these own rule in grammar?
-               'insert_with_table_hints->table_hints',
-               'column_name_list->column_names', 'output_clause', 'insert_statement_value->values_clause',
-               'for_clause', 'option_clause']
-
-    _rules = ['insert_statement']
+            return query_node
+        else:
+            return query_node
 
 
-class ValueList(AstNode):
-    _fields = ['expression_list->values']
-    _rules = ['value_list']
+class InsertStmt(AliasNode):
+    _fields_spec = [
+        "with_expr=with_expression",
+        "top_clause=top_clause_dm",
+        "into=INTO",
+        "target=ddl_object",
+        "target=rowset_function_limited",  # TODO make these own rule in grammar?
+        "table_hints=insert_with_table_hints",
+        "column_names=column_name_list",
+        "output_clause",
+        "values_clause=insert_statement_value",
+        "for_clause",
+        "option_clause",
+    ]
+
+    _rules = ["insert_statement"]
 
 
-class DeleteStmt(AstNode):
-    _fields = ['with_expression->with_expr', 'top_clause_dm->top_clause',
-               'from_clause', 
-               'delete_statement_from->from_clause',
-               'insert_with_table_hints->table_hints',
-               'output_clause', 
-               'table_sources->from_source', 'where_clause_dml->where_clause',
-               'for_clause', 'option_clause']
-
-    _rules = ['delete_statement']
+class ValueList(AliasNode):
+    _fields_spec = ["values=expression_list"]
+    _rules = ["value_list"]
 
 
-class UpdateStmt(AstNode):
-    _fields = ['with_expression->with_expr', 'top_clause_dm->top_clause',
-               'ddl_object->target', 'rowset_function_limited->target',    # TODO make these own rule in grammar?
-               'insert_with_table_hints->table_hints',
-               'update_elem->set_clause',
-               'output_clause', 
-               'table_sources->from_source', 'where_clause_dml->where_clause',
-               'for_clause', 'option_clause']
+class DeleteStmt(AliasNode):
+    _fields_spec = [
+        "with_expr=with_expression",
+        "top_clause=top_clause_dm",
+        "from_clause",
+        "from_clause=delete_statement_from",
+        "table_hints=insert_with_table_hints",
+        "output_clause",
+        "from_source=table_sources",
+        "where_clause=where_clause_dml",
+        "for_clause",
+        "option_clause",
+    ]
 
-    _rules = ['update_statement']
-
-
-class UpdateElem(AstNode):
-    _fields = ['full_column_name->name', 'name', 'expression']
-    _rules = ['update_elem']
-
-
-class DeclareStmt(AstNode):
-    # TODO sort out all forms of declare statements
-    #      this configuration is to allow AST node selection in the meantime
-    _fields = ['cursor_name->variable', 'declare_set_cursor_common->value', 'declare_local']
-    _rules = ['declare_statement', 'declare_cursor']
+    _rules = ["delete_statement"]
 
 
-class DeclareLocal(AstNode):
-    _fields = ['LOCAL_ID->name', 'data_type->type']
-    _rules = ['declare_local']
+class UpdateStmt(AliasNode):
+    _fields_spec = [
+        "with_expr=with_expression",
+        "top_clause=top_clause_dm",
+        "target=ddl_object",
+        "target=rowset_function_limited",  # TODO make these own rule in grammar?
+        "table_hints=insert_with_table_hints",
+        "set_clause=update_elem",
+        "output_clause",
+        "from_source=table_sources",
+        "where_clause=where_clause_dml",
+        "for_clause",
+        "option_clause",
+    ]
+
+    _rules = ["update_statement"]
 
 
-class CursorStmt(AstNode):
-    _fields = ['type', 'variable']
-    _rules = [('cursor_statement', '_from_cursor')]
+class UpdateElem(AliasNode):
+    _fields_spec = ["name=full_column_name", "name", "expression"]
+    _rules = ["update_elem"]
+
+
+class DeclareStmt(AliasNode):
+    _fields_spec = [
+        "variable=LOCAL_ID",
+        "variable=cursor_name",
+        "value=declare_set_cursor_common",
+        "declare_local",
+        "table_type_definition",  # TODO: improve
+    ]
+    _rules = ["declare_statement", "declare_cursor"]
+
+
+class DeclareLocal(AliasNode):
+    _fields_spec = ["name=LOCAL_ID", "type=data_type", "value=expression"]
+    _rules = ["declare_local"]
+
+
+class CursorStmt(AliasNode):
+    _fields_spec = ["type", "variable=cursor_name"]
+    _rules = [("cursor_statement", "_from_cursor")]
 
     @classmethod
-    def _from_cursor(cls, visitor, ctx):
-        if ctx.declare_cursor() or ctx.fetch_cursor():
-            return visitor.visitChildren(ctx)
-        statement_type = ctx.children[0].getText().upper()
-        variable = ctx.cursor_name().accept(visitor)
-        return cls(ctx, type=statement_type, variable=variable)
+    def _from_cursor(cls, node):
+        has_own_cursor_alias = node.declare_cursor or node.fetch_cursor
+        if has_own_cursor_alias:
+            return has_own_cursor_alias
+        alias = cls.from_spec(node)
+        # TODO: combine() instead of children + keyword case convention
+        alias.type = node.children[0].get_text().upper()
+        return alias
 
 
-class FetchStmt(AstNode):
-    _fields = ['type', 'source', 'vars']
-    _rules = [('fetch_cursor', '_from_standard')]
-
-    @classmethod
-    def _from_standard(cls, visitor, ctx):
-        fetch_type = ctx.children[1].getText().upper()
-        source = ctx.cursor_name().accept(visitor)
-
-        variables_offset = list(map(lambda child: child.getText(), ctx.children)).index('INTO') + 1
-        variables = []
-        for variable in ctx.children[variables_offset:]:
-            if variable.getText() == ',': continue
-            variableResult = Identifier(variable, name=variable.getText())
-            variables.append(variableResult)
-
-        return cls(ctx, type=fetch_type, source=source, vars=variables)
+class FetchStmt(AliasNode):
+    _fields_spec = ["type=FETCH", "source=cursor_name", "vars=LOCAL_ID"]
+    _rules = ["fetch_cursor"]
 
 
 # TODO FetchType(type, number)
@@ -182,304 +191,356 @@ class FetchStmt(AstNode):
 # TODO primitive expression
 
 
-class SetStmt(AstNode):
-    _fields = ['placeholder_do_not_use']
+# TODO
+class SetStmt(AliasNode):
+    _fields_spec = ['type=set_special.set_type',
+                    'key=set_special.key',
+                    'value=set_special.value',
+                    'value=set_special.constant_LOCAL_ID',
+                    'value=set_special.on_off'
+                    ]
+    _rules = ["set_statement"]
 
 
-class PrintStmt(AstNode):
-    _fields = ['placeholder_do_not_use']
+# TODO
+class PrintStmt(AliasNode):
+    _fields_spec = []
+    _rules = ["print_statement"]
 
 
-class Union(AstNode):
-    _fields = ['left', 'op', 'right']        
-    _rules = ['union_query_expression']
+class Union(AliasNode):
+    _fields_spec = ["left", "op", "right"]
+    _rules = ["union_query_expression"]
 
 
-class Identifier(AstNode):
+class Identifier(AliasNode):
     # should have server, database, schema, table, name
-    _fields = ['server', 'database', 'schema', 'table', 'name', 'procedure->name']
-    _rules = ['full_table_name', 'table_name', 'func_proc_name',
-              ('full_column_name', '_from_full_column_name')]
+    _fields_spec = ["server", "database", "schema", "table", "name", "name=procedure"]
+    _rules = [
+        "full_table_name",
+        "table_name",
+        "func_proc_name",
+        ("full_column_name", "_from_full_column_name"),
+    ]
 
     @classmethod
-    def _from_full_column_name(cls, visitor, ctx):
-        if ctx.table:
-            ident = cls._from_fields(visitor, ctx.table)
-            ident.name = visitor.visit(ctx.name)
+    def _from_full_column_name(cls, node):
+        if node.table:
+            ident = cls.from_spec(node.table)
+            ident.name = node.name
             return ident
 
-        return cls._from_fields(visitor, ctx)
+        return cls.from_spec(node)
 
 
-class WhileStmt(AstNode):
-    _fields = ['search_condition', 'sql_clause->body']
-    _rules = ['while_statement']
+class WhileStmt(AliasNode):
+    _fields_spec = ["search_condition", "body=sql_clause"]
+    _rules = ["while_statement"]
 
 
-class Body(AstNode):
-    _fields = ['sql_clauses->statements']
-    _rules = ['block_statement']
+class Body(AliasNode):
+    _fields_spec = ["statements=sql_clauses"]
+    _rules = ["block_statement"]
 
 
-class TableAliasExpr(AstNode):
-    _fields = ['r_id->alias', 'column_name_list->alias_columns', 'select_statement']
-    _rules = ['common_table_expression']
+class TableAliasExpr(AliasNode):
+    _fields_spec = ["alias=r_id", "alias_columns=column_name_list", "select_statement"]
+    _rules = ["common_table_expression"]
 
 
-class AliasExpr(AstNode):
-    _fields = ['expression->expr', 'alias']
-    _rules = [('table_source_item_name', '_from_source_table_item'),
-              ('select_list_elem', '_from_select_list_elem')]
+class AliasExpr(AliasNode):
+    _fields_spec = ["expr=expression", "alias=table_alias.r_id", "alias=column_alias"]
+    _rules = [
+        (
+            "table_source_item_name",
+            "_from_source_table_item",
+        ),  # TODO: vs TableAliasExpr?
+        ("select_list_elem", "_from_select_list_elem"),
+    ]
 
     @classmethod
-    def _from_select_list_elem(cls, visitor, ctx):
-        if ctx.alias:
-            return cls._from_fields(visitor, ctx)
-        elif ctx.a_star():
-            tab = ctx.table_name()
-            ident = visitor.visit(tab) if tab else Identifier(ctx)
-            ident.name = visitor.visit(ctx.a_star())
+    def _from_select_list_elem(cls, node):
+        if node.alias:
+            return cls.from_spec(node)
+        elif node.a_star:
+            tab = node.table_name
+            ident = tab or Identifier.from_spec(node)
+            ident.name = node.a_star
             return ident
         else:
-            return visitor.visitChildren(ctx)
+            return node.expression  # TODO visitChildren -> fields
 
     @classmethod
-    def _from_source_table_item(cls, visitor, ctx):
-        if ctx.with_table_hints(): return visitor.visitChildren(ctx)
+    def _from_source_table_item(cls, node):
+        if node.with_table_hints:
+            return node  # TODO visitChildren -> fields
 
-        ctx_alias = ctx.table_alias()
-        if ctx_alias:
-            expr  = visitor.visit(ctx.children[0])
-            alias = visitor.visit(ctx_alias)
-            return cls(ctx_alias, expr=expr, alias=alias)
+        if node.table_alias:
+            alias = cls.from_spec(node)
+            alias.expr = node.children[0]
+            return alias
         else:
-            return visitor.visitChildren(ctx)
+            return node  # TODO visitChildren -> fields
 
 
-class Star(AstNode):
-    _fields = []
+class Star(AliasNode):
+    _fields_spec = []
 
 
-class BinaryExpr(AstNode):
-    _fields = ['left', 'op', 'comparison_operator->op', 'right']
+class BinaryExpr(AliasNode):
+    _fields_spec = [
+        "left",
+        "op",
+        "op=comparison_operator",
+        "right",
+        "right=subquery",
+        "right=expression_list",
+    ]
 
-    _rules = ['binary_operator_expression', 'binary_operator_expression2',
-              'search_cond_and', 'search_cond_or',
-              ('binary_mod_expression', '_from_mod'),
-              ('binary_in_expression', '_from_mod')]
+    _rules = [
+        "binary_operator_expression",
+        "binary_operator_expression2",
+        "search_cond_and",
+        "search_cond_or",
+        ("binary_mod_expression", "_from_mod"),
+        ("binary_in_expression", "_from_mod"),
+    ]
 
     @classmethod
-    def _from_mod(cls, visitor, ctx):
-        fields = ['left', 'op', 'right', 'subquery->right', 'expression_list->right']
-        bin_expr = BinaryExpr._from_fields(visitor, ctx, fields)
-        ctx_not = ctx.NOT()
-        if ctx_not:
-            return UnaryExpr(ctx, op=visitor.visit(ctx_not), expr=bin_expr)
+    def _from_mod(cls, node):
+        bin_expr = BinaryExpr.from_spec(node)
+        if node.NOT:
+            return UnaryExpr(node, {"op": node.NOT, "expr": bin_expr})
 
         return bin_expr
 
 
-class UnaryExpr(AstNode):
-    _fields = ['op', 'expression->expr']
-    _rules = ['unary_operator_expression%s'%ii for ii in ('',2,3)]
+class UnaryExpr(AliasNode):
+    _fields_spec = ["op", "expr=expression"]
+    _rules = ["unary_operator_expression%s" % ii for ii in ("", 2, 3)]
 
 
-class TopExpr(AstNode):
-    _fields = ['expression->expr', 'PERCENT->percent', 'WITH->with_ties']
-    _rules = ['top_clause', 'top_clause_dm']
+class TopExpr(AliasNode):
+    _fields_spec = ["expr=expression", "percent=PERCENT", "with_ties=WITH"]
+    _rules = ["top_clause", "top_clause_dm"]
 
 
-class OrderByExpr(AstNode):
-    _fields = ['order_by_expression->expr', 'offset', 'fetch_expression->fetch']
-    _rules = ['order_by_clause']
+class OrderByExpr(AliasNode):
+    _fields_spec = ["expr=order_by_expression", "offset", "fetch=fetch_expression"]
+    _rules = ["order_by_clause"]
 
 
-class SortBy(AstNode):
-    _fields = ['expression->expr', 'direction']
-    _rules = ['order_by_expression']
+class GroupByGroupingSets(AliasNode):
+    _fields_spec = ["grouping_set"]
+    _rules = ["group_by_grouping_sets"]
 
 
-class JoinExpr(AstNode):
-    _fields = ['left', 'op->join_type', 'join_type', 'right'
-               'table_source->source', 'search_condition->cond']
-    _rules = ['standard_join', 'cross_join', ('apply_join', '_from_apply')]
+class SortBy(AliasNode):
+    _fields_spec = ["expr=expression", "direction"]
+    _rules = ["order_by_expression"]
+
+
+class TimeZoneConversion(AliasNode):
+    _fields_spec = ["expr=left", "timezone=right"]
+    _rules = ["conversion_expression"]
+
+
+class JoinExpr(AliasNode):
+    _fields_spec = [
+        "left",
+        "join_type=op",
+        "join_type",
+        "right" "source=table_source",
+        "cond=search_condition",
+    ]
+    _rules = ["standard_join", "cross_join", ("apply_join", "_from_apply")]
 
     @classmethod
-    def _from_apply(cls, visitor, ctx):
-        join_expr = JoinExpr._from_fields(visitor, ctx)
-        if ctx.APPLY(): join_expr.join_type += ' APPLY'
+    def _from_apply(cls, node):
+        join_expr = JoinExpr.from_spec(node)
+        if node.APPLY:  # TODO convention for keywords
+            join_expr.join_type = str(join_expr.join_type) + " APPLY"
 
         return join_expr
 
     @classmethod
-    def _from_table_source_item_joined(cls, visitor, ctx):
-        visitor.visit(ctx.join_part())
+    def _from_table_source_item_joined(cls, node):
+        return node.join_part  # TODO: no return before?
 
 
-class Case(AstNode):
-    _fields = ['caseExpr->input', 'switch_search_condition_section->switches', 'switch_section->switches', 'elseExpr->else_expr']
-    _rules = ['case_expression']
+class Case(AliasNode):
+    _fields_spec = [
+        "input=caseExpr",
+        "switches=switch_search_condition_section",
+        "switches=switch_section",
+        "else_expr=elseExpr",
+    ]
+    _rules = ["case_expression"]
 
 
-class CaseWhen(AstNode):
-    _fields = ['whenExpr->when', 'thenExpr->then']
-    _rules = ['switch_search_condition_section']
+class CaseWhen(AliasNode):
+    _fields_spec = ["when=whenExpr", "then=thenExpr"]
+    _rules = ["switch_section", "switch_search_condition_section"]
 
 
-class IfElse(AstNode):
-    _fields = ['search_condition', 'if_expr', 'else_expr']
-    _rules = ['if_statement']
+class IfElse(AliasNode):
+    _fields_spec = ["search_condition", "if_expr", "else_expr"]
+    _rules = ["if_statement"]
 
 
-class OverClause(AstNode):
-    _fields = ['expression_list->partition', 'order_by_clause', 'row_or_range_clause']
-    _rules = ['over_clause']
+class OverClause(AliasNode):
+    _fields_spec = [
+        "partition=expression_list",
+        "order_by_clause",
+        "row_or_range_clause",
+    ]
+    _rules = ["over_clause"]
 
 
-class Sublink(AstNode):
-    _fields = ['test_expr', 'op', 'pref', 'subquery->select']
-    _rules = ['sublink_expression']
+class Sublink(AliasNode):
+    _fields_spec = ["test_expr", "op", "pref", "select=subquery"]
+    _rules = ["sublink_expression"]
 
 
 from collections.abc import Sequence
-class Call(AstNode):
-    _fields = ['name', 'all_distinct->pref',
-               'expression_list->args', 'expression->args',
-               'over_clause']
 
-    _rules = [('standard_call',               '_from_standard'),
-              ('simple_call',                 '_from_simple'),
-              ('aggregate_windowed_function', '_from_aggregate'),
-              ('ranking_windowed_function',   '_from_aggregate'),
-              ('next_value_for_function',     '_from_aggregate'),
-              ('cast_call',                   '_from_cast')]
+
+class Call(AliasNode):
+    _fields_spec = [
+        "name",
+        "pref=all_distinct",
+        "args=expression_list",
+        "args=expression",
+        "over_clause",
+        "using"
+    ]
+
+    _rules = [
+        ("standard_call", "_from_standard"),
+        ("simple_call", "_from_simple"),
+        ("aggregate_windowed_function", "_from_aggregate"),
+        ("ranking_windowed_function", "_from_aggregate"),
+        ("next_value_for_function", "_from_aggregate"),
+        ("cast_call", "_from_cast"),
+        ("expression_call", "_from_expression"),
+    ]
 
     @classmethod
-    def _from_standard(cls, visitor, ctx):
-        name = ctx.children[0].getText()
+    def _from_standard(cls, node):
+        alias = cls.from_spec(node)
+        alias.name = node.children[0]
 
         # calls where the expression_list rule handles the args
-        if ctx.expression_list():
-            args = ctx.expression_list().accept(visitor)
+        if node.expression_list:
+            alias.args = node.expression_list
         # calls where args are explicitly comma separated
         else:
+            # TODO use combine()?
             # find commas
-            args = []
-            prev_comma = 0
-            for ii, c in enumerate(ctx.children[2:-1], 2):    # skip name and '('
-                if not (isinstance(c, Tree.TerminalNodeImpl) and c.getText() == ','):
-                    childResult = c.accept(visitor)
-                    args.append(childResult)
-        
-        return cls(ctx, name=name, args=args)
+            alias.args = []
+            for ii, c in enumerate(node.children[2:-1], 2):  # skip name and '('
+                if not c == ",":
+                    alias.args.append(c)
+
+        return alias
 
     @staticmethod
-    def get_name(ctx): return ctx.children[0].getText().upper()
+    def get_name(node):  # TODO
+        return node.children[0]
 
     @classmethod
-    def _from_simple(cls, visitor, ctx):
-        return cls(ctx, name = cls.get_name(ctx), args = [])
+    def _from_simple(cls, node):
+        return cls(node, {"name": cls.get_name(node), "args": []})
 
     @classmethod
-    def _from_aggregate(cls, visitor, ctx):
-        obj = cls._from_fields(visitor, ctx)
-        obj.name = cls.get_name(ctx)
+    def _from_aggregate(cls, node):
+        alias = cls.from_spec(node)
+        alias.name = cls.get_name(node)
 
-        if obj.args is None: obj.args = []
-        elif not isinstance(obj.args, Sequence): obj.args = [obj.args]
-        return obj
+        if alias.args is None:
+            alias.args = []
+        elif not isinstance(alias.args, Sequence):
+            alias.args = [alias.args]
+        return alias
 
     @classmethod
-    def _from_cast(cls, visitor, ctx):
-        args = [AliasExpr(ctx, expr = ctx.expression().accept(visitor), alias=ctx.alias.accept(visitor))]
-        return cls(ctx, name = cls.get_name(ctx), args = args)
+    def _from_cast(cls, node):
+        return cls(
+            node,
+            {
+                "name": cls.get_name(node),
+                "args": [
+                    AliasExpr(node, {"expr": node.expression, "alias": node.alias})
+                ],
+            },
+        )
+
+    @classmethod
+    def _from_expression(cls, node):
+        return cls(
+            node,
+            {
+                "name": cls.get_name(node),
+                "args": [
+                    AliasExpr(node, {"expr": node.left, "alias": node.alias})
+                ],
+                "using": node.right
+            }
+        )
 
 
 # PARSE TREE VISITOR ----------------------------------------------------------
-import inspect
-from functools import partial
 
 
-class AstVisitor(tsql_grammar.Visitor):
-    def visitChildren(self, node, predicate=None):
-        """Default ParseTreeVisitor subtree visiting method
-
-        :param node: Tree subclass (Context, Terminal...)
-        :param predicate: skip child nodes that fulfill the predicate
-        :return: AstNode
-        """
-        result = self.defaultResult()
-        n = node.getChildCount()
-        for i in range(n):
-            if not self.shouldVisitNextChild(node, result):
-                return
-
-            c = node.getChild(i)
-            # TODO: clean up grammar, and then remove hacky semicolon discarder below
-            if isinstance(c, Tree.TerminalNodeImpl) and c.getText() == ';': continue
-            if predicate and not predicate(c): continue
-
-            childResult = c.accept(self)
-            result = self.aggregateResult(result, childResult)
-        return self.result_to_ast(node, result)
+class Transformer(BaseNodeTransformer):
+    @staticmethod
+    def visit_Constant(node):
+        return node
 
     @staticmethod
-    def result_to_ast(node, result):
-        if len(result) == 1: return result[0]
-        elif len(result) == 0: return None
-        elif all(isinstance(res, str) for res in result): return " ".join(result)
-        elif all(isinstance(res, AstNode) and not isinstance(res, Unshaped) for res in result): return result
-        else: return Unshaped(node, result)
+    def visit_Sign(node):
+        # TODO strip + sign from int?
+        return Terminal.from_text(node.get_text(), node._ctx)
 
-    def defaultResult(self):
-        return list()
+    @staticmethod
+    def visit_Comparison_operator(node):
+        return Terminal.from_text(node.get_text(), node._ctx)
 
-    def aggregateResult(self, aggregate, nextResult):
-        aggregate.append(nextResult)
-        return aggregate
+    @staticmethod
+    def visit_With_expression(node):
+        return node.common_table_expression
 
+    @staticmethod
+    def visit_Table_value_constructor(node):
+        return node.value_list
+
+
+# TODO: port from remove_terminal:
+#  - "where_clause_dml",
+#  - "declare_set_cursor_common",
+
+
+# Add visit methods to Transformer for all nodes (in _rules) that convert to AliasNode instances
+
+alias_nodes = get_alias_nodes(globals().values())
+Transformer.bind_alias_nodes(alias_nodes)
+
+
+class AstVisitor(BaseAstVisitor):
     def visitTerminal(self, ctx):
-        return ctx.getText()
-
-    def visitConstant(self, ctx):
-        res = self.visitChildren(ctx)
-        return res if not res.startswith('+') else res[1:]
-
-    def visitSet_statement(self, ctx):
-        return SetStmt(ctx, placeholder_do_not_use=self.visitChildren(ctx))
-
-    def visitPrint_statement(self, ctx):
-        return PrintStmt(ctx, placeholder_do_not_use=self.visitChildren(ctx))
-
-    def visitExpression_list(self, ctx):
-        # return list of args, ignoring ',' for constructing function calls
-        args = [c.accept(self) for c in ctx.children if not isinstance(c, Tree.TerminalNode)]
-        return args
-
-    def visitColumn_name_list(self, ctx):
-        return [Identifier(c, name=c.accept(self)) for c in ctx.children if not isinstance(c, Tree.TerminalNode)]
-
-    # simple dropping of tokens -----------------------------------------------
-
-    _remove_terminal = [
-            'select_list', 'bracket_expression', 'subquery_expression',
-            'bracket_search_expression', 'bracket_query_expression', 'bracket_table_source',
-            'table_alias', 'table_value_constructor', 'where_clause_dml', 'declare_set_cursor_common',
-            'with_expression']
-
-
-# Override visit methods in AstVisitor for all nodes (in _rules) that convert to the AstNode classes
-for item in list(globals().values()):
-    if inspect.isclass(item) and issubclass(item, AstNode):
-        item._bind_to_visitor(AstVisitor)
-
-# Override node visiting methods to add terminal child skipping in AstVisitor
-for rule in AstVisitor._remove_terminal: 
-    # f = partial(AstVisitor.visitChildren, predicate = lambda n: not isinstance(n, Tree.TerminalNode))
-    def skip_terminal_child_nodes(self, ctx):
-        return self.visitChildren(ctx, predicate=lambda n: not isinstance(n, Tree.TerminalNode))
-    setattr(AstVisitor, 'visit' + rule.capitalize(), skip_terminal_child_nodes)
+        """Converts case insensitive keywords and identifiers to lowercase
+           Identifiers in quotes are not lowercased even though there is case sensitivity in quotes for identifiers,
+            to prevent lowercasing quoted values.
+        """
+        text = str(super().visitTerminal(ctx))
+        quotes = ["'", '"']
+        if not (text[0] in quotes and text[-1] in quotes):
+            text = text.lower()
+        return Terminal.from_text(text, ctx)
 
 
 if __name__ == "__main__":
-    parse('SELECT id FROM artists WHERE id > 100')
+    query = """
+SELECT id FROM artists WHERE id > 100
+    """
+    parse(query)
