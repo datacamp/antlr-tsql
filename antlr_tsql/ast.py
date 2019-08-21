@@ -15,13 +15,17 @@ from antlr_ast.ast import (
     BaseNode as AstNode,
     AntlrException as ParseError,
     dump_node,  # TODO only used in tests
-    BaseAstVisitor)
+    BaseAstVisitor,
+)
+from antlr_ast.inputstream import CaseTransformInputStream
 
-from . import grammar
+from antlr_tsql import grammar
 
 
-def parse(sql_text, start="tsql_file", strict=False):
-    antlr_tree = parse_ast(grammar, sql_text, start, strict)
+def parse(sql_text, start="tsql_file", **kwargs):
+    antlr_tree = parse_ast(
+        grammar, sql_text, start, transform=CaseTransformInputStream.UPPER, **kwargs
+    )
     simple_tree = process_tree(
         antlr_tree, base_visitor_cls=AstVisitor, transformer_cls=Transformer
     )
@@ -58,7 +62,7 @@ class SelectStmt(AliasNode):
         "order_by_clause",
         "for_clause",
         "option_clause",
-        "group_by_grouping_sets"
+        "group_by_grouping_sets",
     ]
 
     _rules = ["query_specification", ("select_statement", "_from_select_rule")]
@@ -193,12 +197,13 @@ class FetchStmt(AliasNode):
 
 # TODO
 class SetStmt(AliasNode):
-    _fields_spec = ['type=set_special.set_type',
-                    'key=set_special.key',
-                    'value=set_special.value',
-                    'value=set_special.constant_LOCAL_ID',
-                    'value=set_special.on_off'
-                    ]
+    _fields_spec = [
+        "type=set_special.set_type",
+        "key=set_special.key",
+        "value=set_special.value",
+        "value=set_special.constant_LOCAL_ID",
+        "value=set_special.on_off",
+    ]
     _rules = ["set_statement"]
 
 
@@ -412,7 +417,7 @@ class Call(AliasNode):
         "args=expression_list",
         "args=expression",
         "over_clause",
-        "using"
+        "using",
     ]
 
     _rules = [
@@ -481,11 +486,9 @@ class Call(AliasNode):
             node,
             {
                 "name": cls.get_name(node),
-                "args": [
-                    AliasExpr(node, {"expr": node.left, "alias": node.alias})
-                ],
-                "using": node.right
-            }
+                "args": [AliasExpr(node, {"expr": node.left, "alias": node.alias})],
+                "using": node.right,
+            },
         )
 
 
