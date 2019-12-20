@@ -2,6 +2,7 @@
 
 [![Build Status](https://travis-ci.org/datacamp/antlr-tsql.svg?branch=master)](https://travis-ci.org/datacamp/antlr-tsql)
 [![PyPI version](https://badge.fury.io/py/antlr-tsql.svg)](https://badge.fury.io/py/antlr-tsql)
+[![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2Fdatacamp%2Fantlr-tsql.svg?type=shield)](https://app.fossa.io/projects/git%2Bgithub.com%2Fdatacamp%2Fantlr-tsql?ref=badge_shield)
 
 ## Development
 
@@ -92,3 +93,7 @@ pytest
 - Builds the Docker image.
 - Runs the Docker image to build the grammar and run the unit tests.
 - Deploys the resulting python files to PyPi when a new release is made, so they can be installed easily.
+
+## License
+
+[![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2Fdatacamp%2Fantlr-tsql.svg?type=large)](https://app.fossa.io/projects/git%2Bgithub.com%2Fdatacamp%2Fantlr-tsql?ref=badge_large)
